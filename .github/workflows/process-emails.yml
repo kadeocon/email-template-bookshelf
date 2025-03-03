@@ -6,10 +6,15 @@ on:
       - main
     paths:
       - 'templates/**/*.html'
+  # Add manual trigger
+  workflow_dispatch:
 
 jobs:
   process-templates:
     runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
     
     steps:
       - name: Checkout repository
@@ -25,29 +30,49 @@ jobs:
       - name: Install dependencies
         run: |
           npm install puppeteer gifencoder canvas png-file-stream cheerio marked
-
+      
+      # Create required directories if they don't exist
+      - name: Ensure directories exist
+        run: |
+          mkdir -p docs/previews/static
+          mkdir -p docs/previews/animated
+          mkdir -p docs/data
+          mkdir -p docs/templates
+          mkdir -p docs/images
+      
+      # Copy placeholder image if needed
+      - name: Copy placeholder image
+        run: |
+          # Check if the placeholder image exists
+          if [ ! -f docs/images/placeholder-email.svg ]; then
+            echo "Creating placeholder image directory"
+            mkdir -p docs/images
+            echo "Copying placeholder image"
+            cp templates/placeholder-email.svg docs/images/placeholder-email.svg || echo "Placeholder image not found, will use fallback method"
+          fi
+      
       # Step 1: Generate static thumbnails
       - name: Generate static thumbnails
-        run: node scripts/thumbnail-generator.js
+        run: node scripts/thumbnail-generator.js || echo "Static thumbnail generation failed but continuing"
       
       # Step 2: Generate scrolling GIFs
       - name: Generate scrolling GIFs
         run: |
-          # Get list of HTML files changed in this commit
-          CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD | grep -E "templates/.*\.html$" || echo "")
-          if [ ! -z "$CHANGED_FILES" ]; then
-            node scripts/scrolling-gif-generator.js $CHANGED_FILES
+          # Find all HTML files in templates directory
+          find templates -name "*.html" -not -path "*/detail-page-template.html" > template_files.txt
+          if [ -s template_files.txt ]; then
+            cat template_files.txt | xargs node scripts/scrolling-gif-generator.js || echo "GIF generation failed but continuing"
           else
-            echo "No HTML files were changed. Skipping GIF generation."
+            echo "No HTML template files found to process"
           fi
       
       # Step 3: Generate metadata for all templates
       - name: Generate template metadata
-        run: node scripts/metadata-generator.js
+        run: node scripts/metadata-generator.js || echo "Metadata generation failed but continuing"
       
       # Step 4: Generate detail pages for each template
       - name: Generate detail pages
-        run: node scripts/generate-detail-pages.js
+        run: node scripts/generate-detail-pages.js || echo "Detail page generation failed but continuing"
       
       # Step 5: Commit and push all generated assets
       - name: Commit and push generated assets

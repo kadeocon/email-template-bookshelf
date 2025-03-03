@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Template Bookshelf | Kade O'Connor</title>
+    <meta name="description" content="A collection of professional HTML email templates designed by Kade O'Connor">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
+    <header>
+        <div class="site-header">
+            <div class="logo" role="banner">
+                <img src="https://kadeoconnor.com/staging/1137/wp-content/uploads/2024/11/Kade-Logo-flat.png" alt="Kade O'Connor Logo" />
+                Email Template Bookshelf
+            </div>
+            <nav aria-label="Main navigation">
+                <a href="#about" class="nav-link">About</a>
+                <a href="https://github.com/username/email-templates" class="nav-link">GitHub</a>
+            </nav>
+        </div>
+    </header>
+    
+    <div class="search-filter-bar">
+        <div class="search-filter-inner">
+            <div class="search-bar">
+                <label for="search-input" class="sr-only">Search templates</label>
+                <input type="text" id="search-input" placeholder="Search templates..." aria-label="Search templates" />
+            </div>
+            <div class="filter-buttons" role="group" aria-label="Filter templates">
+                <button class="filter-button active" aria-pressed="true">All</button>
+                <button class="filter-button" aria-pressed="false">Welcome</button>
+                <button class="filter-button" aria-pressed="false">Newsletter</button>
+                <button class="filter-button" aria-pressed="false">Promotional</button>
+                <button class="filter-button" aria-pressed="false">Transactional</button>
+                <button class="filter-button" aria-pressed="false">Event</button>
+                <button class="filter-button" aria-pressed="false">CMG Demo</button>
+            </div>
+        </div>
+    </div>
+    
+    <main class="bookshelf-container" id="main-content">
+        <h1 class="sr-only">Email Template Gallery</h1>
+        <div aria-live="polite" id="search-results-announcement" class="sr-only"></div>
+        
+        <div class="bookshelf" role="list">
+            <!-- Example email template cards - will be populated dynamically -->
+            <div class="email-card" role="listitem" id="template-abandoned-cart">
+                <a href="templates/abandoned-cart.html" class="email-link">View Abandoned Cart Template</a>
+                <div class="client-badge">CMG Demo</div>
+                <div class="email-thumbnail">
+                    <img src="previews/animated/abandoned-cart.gif" alt="Preview of Abandoned Cart email template" onerror="this.src='images/placeholder-email.png'"/>
+                </div>
+                <div class="email-info">
+                    <h3 class="email-title">Abandoned Cart</h3>
+                    <div class="email-meta">
+                        <div class="tags">
+                            <span class="tag">E-commerce</span>
+                            <span class="tag">Recovery</span>
+                        </div>
+                        <div class="date">Aug 2024</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Placeholder cards that will be replaced by dynamic content -->
+            <div class="email-card" role="listitem" id="template-welcome-series">
+                <a href="templates/welcome-series.html" class="email-link">View Welcome Series Template</a>
+                <div class="client-badge">Client A</div>
+                <div class="email-thumbnail">
+                    <img src="images/placeholder-email.png" alt="Preview of Welcome Series email template" />
+                </div>
+                <div class="email-info">
+                    <h3 class="email-title">Welcome Series</h3>
+                    <div class="email-meta">
+                        <div class="tags">
+                            <span class="tag">Welcome</span>
+                            <span class="tag">Retail</span>
+                        </div>
+                        <div class="date">Jul 2024</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="email-card" role="listitem" id="template-newsletter">
+                <a href="templates/newsletter.html" class="email-link">View Newsletter Template</a>
+                <div class="client-badge">Generic</div>
+                <div class="email-thumbnail">
+                    <img src="images/placeholder-email.png" alt="Preview of Newsletter Template" />
+                </div>
+                <div class="email-info">
+                    <h3 class="email-title">Newsletter</h3>
+                    <div class="email-meta">
+                        <div class="tags">
+                            <span class="tag">Newsletter</span>
+                            <span class="tag">2-column</span>
+                        </div>
+                        <div class="date">Jun 2024</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <section id="about" class="about-section">
+            <h2>About This Project</h2>
+            <p>The Email Template Bookshelf is a curated collection of HTML email templates designed for various clients and use cases. This repository serves as both a personal archive and a resource for client demonstrations.</p>
+            <p>All templates are responsive, tested across major email clients, and follow accessibility best practices to ensure the widest possible reach for your email campaigns.</p>
+            <p>Templates marked as "CMG Demo" are also available for demonstration at <a href="https://collegemarketinggroup.com/email-marketing-specs/">College Marketing Group</a> as starting points for our clients.</p>
+            <p><a href="https://kadeoconnor.com" class="btn">Visit My Portfolio</a></p>
+        </section>
+    </main>
+    
+    <footer>
+        <p>Email Template Bookshelf &copy; 2025 <a href="https://kadeoconnor.com">Kade O'Connor</a>. All rights reserved.</p>
+    </footer>
+    
+    <!-- JavaScript -->
+    <script src="js/search.js"></script>
+</body>
+</html>

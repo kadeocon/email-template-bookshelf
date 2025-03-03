@@ -1,0 +1,59 @@
+name: Process Email Templates
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'templates/**/*.html'
+
+jobs:
+  process-templates:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2  # Needed to see the previous commit for diff
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      
+      - name: Install dependencies
+        run: |
+          npm install puppeteer gifencoder canvas png-file-stream cheerio marked
+
+      # Step 1: Generate static thumbnails
+      - name: Generate static thumbnails
+        run: node scripts/thumbnail-generator.js
+      
+      # Step 2: Generate scrolling GIFs
+      - name: Generate scrolling GIFs
+        run: |
+          # Get list of HTML files changed in this commit
+          CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD | grep -E "templates/.*\.html$" || echo "")
+          if [ ! -z "$CHANGED_FILES" ]; then
+            node scripts/scrolling-gif-generator.js $CHANGED_FILES
+          else
+            echo "No HTML files were changed. Skipping GIF generation."
+          fi
+      
+      # Step 3: Generate metadata for all templates
+      - name: Generate template metadata
+        run: node scripts/metadata-generator.js
+      
+      # Step 4: Generate detail pages for each template
+      - name: Generate detail pages
+        run: node scripts/generate-detail-pages.js
+      
+      # Step 5: Commit and push all generated assets
+      - name: Commit and push generated assets
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs/
+          git commit -m "Auto-generate thumbnails, metadata, and detail pages" || echo "No changes to commit"
+          git push

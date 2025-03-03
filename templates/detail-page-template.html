@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{templateTitle}} | Email Template Bookshelf</title>
+    <meta name="description" content="Detailed view of the {{templateTitle}} email template designed by Kade O'Connor">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
+    <header>
+        <div class="site-header">
+            <div class="logo" role="banner">
+                <img src="https://kadeoconnor.com/staging/1137/wp-content/uploads/2024/11/Kade-Logo-flat.png" alt="Kade O'Connor Logo" />
+                Email Template Bookshelf
+            </div>
+            <nav aria-label="Main navigation">
+                <a href="../index.html#about" class="nav-link">About</a>
+                <a href="https://github.com/username/email-templates" class="nav-link">GitHub</a>
+            </nav>
+        </div>
+    </header>
+    
+    <main class="template-detail" id="main-content">
+        <a href="../index.html" class="back-link">Back to gallery</a>
+        
+        <div class="template-header">
+            <div>
+                <div class="client-badge">{{clientName}}</div>
+                <h1 class="template-title">{{templateTitle}}</h1>
+                
+                <div class="template-metadata">
+                    <div class="template-tags">
+                        {{tagsHTML}}
+                    </div>
+                    
+                    <div class="meta-line">
+                        <span class="meta-label">Created:</span> {{createdDate}}
+                    </div>
+                    
+                    <div class="meta-line">
+                        <span class="meta-label">Last Updated:</span> {{updatedDate}}
+                    </div>
+                    
+                    {{subjectLineHTML}}
+                </div>
+            </div>
+            
+            <div class="template-actions">
+                <a href="../{{htmlPath}}" target="_blank" class="btn">View HTML</a>
+            </div>
+        </div>
+        
+        <div class="template-content">
+            <div class="template-preview">
+                <div class="preview-tabs">
+                    <button class="preview-tab active" id="animated-tab">Animated View</button>
+                    <button class="preview-tab" id="static-tab">Static View</button>
+                    <button class="preview-tab" id="live-tab">Live Preview</button>
+                </div>
+                
+                <div class="preview-container">
+                    <img src="../{{animatedPreview}}" alt="Animated preview of {{templateTitle}} email template" onerror="this.src='../images/placeholder-email.png'" />
+                </div>
+            </div>
+            
+            <div class="template-description">
+                <div class="description-section">
+                    <h2 class="description-title">About This Template</h2>
+                    <div>{{fullDescription}}</div>
+                </div>
+                
+                <div class="description-section">
+                    <h2 class="description-title">Key Features</h2>
+                    
+                    {{featuresHTML}}
+                </div>
+                
+                <div class="description-section">
+                    <h2 class="description-title">Design Notes</h2>
+                    <div>{{designNotes}}</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="related-templates">
+            <h2 class="related-title">Related Templates</h2>
+            
+            <div class="related-grid" id="related-templates-container">
+                <!-- Related templates will be populated dynamically -->
+            </div>
+        </div>
+    </main>
+    
+    <footer>
+        <p>Email Template Bookshelf &copy; 2025 <a href="https://kadeoconnor.com">Kade O'Connor</a>. All rights reserved.</p>
+    </footer>
+    
+    <script>
+        // Simple tab switching functionality
+        const tabs = document.querySelectorAll('.preview-tab');
+        const previewContainer = document.querySelector('.preview-container');
+        
+        // Sample content for each tab
+        const tabContent = {
+            'animated-tab': '<img src="../{{animatedPreview}}" alt="Animated preview of {{templateTitle}} email template" onerror="this.src=\'../images/placeholder-email.png\'" />',
+            'static-tab': '<img src="../{{staticPreview}}" alt="Static preview of {{templateTitle}} email template" onerror="this.src=\'../images/placeholder-email.png\'" />',
+            'live-tab': '<iframe class="preview-iframe" src="../{{htmlPath}}" title="Live preview of {{templateTitle}} email template"></iframe>'
+        };
+        
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Update active tab
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // Update content
+                previewContainer.innerHTML = tabContent[tab.id];
+            });
+        });
+        
+        // Load related templates
+        async function loadRelatedTemplates() {
+            try {
+                const response = await fetch('../data/templates.json');
+                if (!response.ok) return;
+                
+                const templates = await response.json();
+                const currentTemplate = templates.find(t => t.id === '{{templateId}}');
+                
+                if (!currentTemplate) return;
+                
+                // Get current template tags
+                const currentTags = currentTemplate.tags || [];
+                
+                // Find templates with similar tags (excluding current)
+                const relatedTemplates = templates
+                    .filter(template => 
+                        template.id !== currentTemplate.id && 
+                        template.tags.some(tag => currentTags.includes(tag))
+                    )
+                    .slice(0, 3); // Limit to 3
+                
+                const relatedContainer = document.getElementById('related-templates-container');
+                
+                // Clear container
+                relatedContainer.innerHTML = '';
+                
+                if (relatedTemplates.length === 0) {
+                    relatedContainer.innerHTML = '<p>No related templates found.</p>';
+                    return;
+                }
+                
+                // Add related templates
+                relatedTemplates.forEach(template => {
+                    const card = document.createElement('div');
+                    card.className = 'related-card';
+                    
+                    card.innerHTML = `
+                        <a href="${template.id}.html" class="related-link" aria-label="View ${template.title} template">
+                            <div class="related-thumbnail">
+                                <img src="../${template.previewStatic}" alt="Preview of ${template.title} template" onerror="this.src='../images/placeholder-email.png'" />
+                            </div>
+                            <div class="related-info">
+                                <h3 class="related-title-small">${template.title}</h3>
+                            </div>
+                        </a>
+                    `;
+                    
+                    relatedContainer.appendChild(card);
+                });
+                
+            } catch (error) {
+                console.error('Error loading related templates:', error);
+            }
+        }
+        
+        // Load related templates on page load
+        document.addEventListener('DOMContentLoaded', loadRelatedTemplates);
+    </script>
+</body>
+</html>

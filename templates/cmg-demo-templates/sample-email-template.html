@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="color-scheme" content="light">
+    <meta name="description" content="Recovery email for abandoned shopping carts with product display and re-engagement CTAs">
+    <title>Your Cart is Waiting - Abandoned Cart Email</title>
+    <style type="text/css">
+        /* Base styles and resets */
+        body, table, td, p, a, li, blockquote {
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100% !important;
+            -webkit-font-smoothing: antialiased;
+            -ms-text-size-adjust: 100%;
+            -webkit-text-size-adjust: 100%;
+            font-family: Arial, sans-serif;
+        }
+        
+        table {
+            border-spacing: 0;
+            border-collapse: collapse;
+            mso-table-lspace: 0pt;
+            mso-table-rspace: 0pt;
+        }
+        
+        table, td {
+            border-collapse: collapse;
+        }
+        
+        img {
+            -ms-interpolation-mode: bicubic;
+            border: 0;
+            height: auto;
+            line-height: 100%;
+            outline: none;
+            text-decoration: none;
+            display: block;
+        }
+        
+        p {
+            margin: 0 0 1em 0;
+            padding: 0;
+        }
+        
+        a, a:visited {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+        
+        .mobile-hide {
+            display: none !important;
+        }
+        
+        @media screen and (min-width: 600px) {
+            .mobile-hide {
+                display: block !important;
+            }
+            
+            .mobile-show {
+                display: none !important;
+            }
+        }
+    </style>
+    <!--[if mso]>
+    <style type="text/css">
+        body, table, td, p, a, li, blockquote {
+            font-family: Arial, sans-serif !important;
+        }
+    </style>
+    <![endif]-->
+</head>
+<!--
+METADATA:
+{
+    "title": "Abandoned Cart Email",
+    "description": "Recovery email for abandoned shopping carts with product reminders.",
+    "subjectLine": "Your Cart is Waiting - Complete Your Purchase Today!",
+    "tags": ["E-commerce", "Recovery", "CMG Demo"],
+    "isCMGDemo": true,
+    "fullDescription": "This abandoned cart recovery email template was created for e-commerce clients looking to recapture lost sales. The design is optimized to remind customers of items left in their cart and encourage completion of the purchase through compelling imagery and strategic CTAs.",
+    "features": [
+        {
+            "title": "Dynamic Product Display",
+            "description": "Automatically pulls abandoned product images, descriptions, and prices from your e-commerce platform."
+        },
+        {
+            "title": "Responsive Layout",
+            "description": "Fully responsive design that looks great on all devices from desktop to mobile."
+        },
+        {
+            "title": "Personalization",
+            "description": "Easy merge field integration for customer name and personalized recommendations."
+        },
+        {
+            "title": "Customizable Timing",
+            "description": "Template can be configured for different abandonment durations (1 hour, 24 hours, etc.)."
+        }
+    ],
+    "designNotes": "The template uses a minimalist design focused on highlighting the abandoned products. The color scheme can be easily customized to match your brand identity while maintaining accessibility standards."
+}
+-->
+<body style="margin: 0; padding: 0; min-width: 100%; background-color: #f8f8f8;">
+    <!-- Email content starts here -->
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" border="0">
+        <tr>
+            <td align="center" style="padding: 20px 0;">
+                <!-- Email wrapper -->
+                <table role="presentation" cellpadding="0" cellspacing="0" width="600" border="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <!-- Header -->
+                    <tr>
+                        <td style="padding: 40px 30px 20px 30px; text-align: center;">
+                            <img src="https://via.placeholder.com/180x60.png" alt="Brand Logo" width="180" style="display: block; margin: 0 auto; max-width: 100%;">
+                        </td>
+                    </tr>
+                    
+                    <!-- Main heading -->
+                    <tr>
+                        <td style="padding: 0 30px 30px 30px; text-align: center;">
+                            <h1 style="margin: 0; font-family: Arial, sans-serif; font-size: 24px; line-height: 36px; color: #333333; font-weight: bold;">
+                                You left something in your cart!
+                            </h1>
+                            <p style="margin: 20px 0 0 0; font-family: Arial, sans-serif; font-size: 16px; line-height: 24px; color: #666666;">
+                                Hi {Customer.FirstName}, we noticed you didn't complete your purchase. Your items are still waiting for you.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Abandoned product(s) -->
+                    <tr>
+                        <td style="padding: 0 30px 30px 30px;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" border="0" style="border: 1px solid #eeeeee; border-radius: 5px;">
+                                <tr>
+                                    <td width="30%" style="padding: 20px;">
+                                        <img src="https://via.placeholder.com/150.png" alt="Product Image" width="100%" style="display: block; max-width: 100%; height: auto;">
+                                    </td>
+                                    <td width="70%" style="padding: 20px; vertical-align: top;">
+                                        <h3 style="margin: 0 0 10px 0; font-family: Arial, sans-serif; font-size: 18px; line-height: 24px; color: #333333;">
+                                            {Product.Name}
+                                        </h3>
+                                        <p style="margin: 0 0 10px 0; font-family: Arial, sans-serif; font-size: 16px; line-height: 24px; color: #666666;">
+                                            {Product.Description}
+                                        </p>
+                                        <p style="margin: 0; font-family: Arial, sans-serif; font-size: 18px; line-height: 24px; color: #333333; font-weight: bold;">
+                                            ${Product.Price}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- CTA -->
+                    <tr>
+                        <td style="padding: 0 30px 40px 30px; text-align: center;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                                <tr>
+                                    <td style="background-color: #4CAF50; border-radius: 4px; padding: 12px 24px;">
+                                        <a href="{Cart.RecoveryURL}" target="_blank" style="color: #ffffff; text-decoration: none; display: block; font-family: Arial, sans-serif; font-size: 16px; font-weight: bold;">
+                                            Complete Your Purchase
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Secondary CTA -->
+                    <tr>
+                        <td style="padding: 0 30px 40px 30px; text-align: center;">
+                            <p style="margin: 0 0 15px 0; font-family: Arial, sans-serif; font-size: 14px; line-height: 24px; color: #666666;">
+                                Having trouble or questions about your order?
+                            </p>
+                            <a href="{Contact.URL}" target="_blank" style="color: #4CAF50; text-decoration: underline; font-family: Arial, sans-serif; font-size: 14px;">
+                                Contact our support team
+                            </a>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px; background-color: #f8f8f8; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" border="0">
+                                <tr>
+                                    <td style="text-align: center; padding-bottom: 20px;">
+                                        <a href="{SocialMedia.Facebook}" target="_blank" style="display: inline-block; margin: 0 5px;">
+                                            <img src="https://via.placeholder.com/24.png" alt="Facebook" width="24">
+                                        </a>
+                                        <a href="{SocialMedia.Twitter}" target="_blank" style="display: inline-block; margin: 0 5px;">
+                                            <img src="https://via.placeholder.com/24.png" alt="Twitter" width="24">
+                                        </a>
+                                        <a href="{SocialMedia.Instagram}" target="_blank" style="display: inline-block; margin: 0 5px;">
+                                            <img src="https://via.placeholder.com/24.png" alt="Instagram" width="24">
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: center; font-family: Arial, sans-serif; font-size: 12px; line-height: 18px; color: #999999;">
+                                        <p style="margin: 0 0 10px 0;">
+                                            &copy; {Company.Name} {Current.Year}. All rights reserved.
+                                        </p>
+                                        <p style="margin: 0 0 10px 0;">
+                                            {Company.Address}
+                                        </p>
+                                        <p style="margin: 0;">
+                                            <a href="{Preferences.URL}" target="_blank" style="color: #999999; text-decoration: underline;">Preferences</a> | 
+                                            <a href="{Unsubscribe.URL}" target="_blank" style="color: #999999; text-decoration: underline;">Unsubscribe</a>
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

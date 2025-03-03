@@ -128,6 +128,38 @@ a:focus {
     width: 100%;
 }
 
+/* Link color fixes */
+
+/* Default links in main content area */
+.main-content a, .about-section a:not(.btn) {
+    color: var(--dark-accent);
+    text-decoration: none;
+    transition: var(--transition);
+  }
+  
+  .main-content a:hover, .about-section a:not(.btn):hover, 
+  .main-content a:focus, .about-section a:not(.btn):focus {
+    text-decoration: underline;
+  }
+  
+  /* Links in dark areas (header, footer) */
+  header a, footer a {
+    color: var(--light-accent);
+    text-decoration: none;
+    transition: var(--transition);
+  }
+  
+  header a:hover, footer a:hover,
+  header a:focus, footer a:focus {
+    color: white;
+    text-decoration: underline;
+  }
+  
+  /* Button link retains its styling */
+  .btn {
+    color: white;
+  }
+
 /* Search and filter bar */
 .search-filter-bar {
     background-color: white;

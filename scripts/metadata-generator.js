@@ -54,6 +54,7 @@ async function generateMetadata() {
   
   for (const filePath of templateFiles) {
     try {
+      console.log(`Processing: ${filePath}`);
       const metadata = await extractMetadata(filePath);
       templateMetadata.push(metadata);
     } catch (error) {
@@ -83,7 +84,7 @@ function getAllHtmlFiles(directory) {
       
       if (stat.isDirectory()) {
         traverseDirectory(fullPath);
-      } else if (file.endsWith('.html')) {
+      } else if (file.endsWith('.html') && !file.includes('detail-page-template')) {
         results.push(fullPath);
       }
     }
@@ -97,8 +98,6 @@ function getAllHtmlFiles(directory) {
  * Extract metadata from an HTML file
  */
 async function extractMetadata(filePath) {
-  console.log(`Processing: ${filePath}`);
-  
   // Create a new metadata object from template
   const metadata = { ...config.metadataTemplate };
   
@@ -170,7 +169,7 @@ async function extractMetadata(filePath) {
   }
   
   // Infer tags based on content and filename if not provided
-  if (metadata.tags.length === 0) {
+  if (!metadata.tags || metadata.tags.length === 0) {
     metadata.tags = inferTags(htmlContent, fileName);
   }
   
@@ -179,45 +178,16 @@ async function extractMetadata(filePath) {
     metadata.fullDescription = `This ${metadata.title.toLowerCase()} template provides a professional design for ${metadata.client} emails. It features a clean layout that's fully responsive and compatible with all major email clients.`;
   }
   
+  // Ensure all required fields are properly set
+  metadata = ensureRequiredFields(metadata);
+  
   return metadata;
 }
 
 /**
- * Extract text content from a selector with truncation
+ * Ensure all required fields are properly set
  */
-function extractTextContent($, selector, maxLength = 200) {
-  const elements = $(selector);
-  if (elements.length === 0) return '';
-  
-  let text = '';
-  
-  for (let i = 0; i < Math.min(3, elements.length); i++) {
-    text += $(elements[i]).text() + ' ';
-    if (text.length > maxLength) break;
-  }
-  
-  if (text.length > maxLength) {
-    text = text.substring(0, maxLength) + '...';
-  }
-  
-  return text.trim();
-}
-
-// metadata-generator-fix.js
-// Additions to ensure proper template processing
-
-// After extracting metadata from the HTML file, add this section to ensure
-// files are properly registered:
-
-// Add this to the extractMetadata function in metadata-generator.js
-// after all metadata extraction is complete
-
 function ensureRequiredFields(metadata) {
-  // If the file is sample-email-template.html, update ID to match templates.json
-  if (metadata.path.includes('sample-email-template.html')) {
-    metadata.id = 'abandoned-cart';
-  }
-  
   // Ensure we have the minimum required fields
   if (!metadata.title) {
     metadata.title = metadata.id.split('-').map(capitalizeWord).join(' ');
@@ -246,67 +216,40 @@ function ensureRequiredFields(metadata) {
     metadata.previewAnimated = `previews/animated/${metadata.id}.gif`;
   }
   
+  // Ensure client is set
+  if (!metadata.client) {
+    if (metadata.path.includes('client-templates')) {
+      metadata.client = metadata.id.split('-').map(capitalizeWord).join(' ');
+    } else if (metadata.path.includes('cmg-demo-templates')) {
+      metadata.client = 'CMG Demo';
+    } else {
+      metadata.client = 'Generic';
+    }
+  }
+  
   return metadata;
 }
 
-// Add ensureRequiredFields call before returning metadata in extractMetadata function
-// metadata = ensureRequiredFields(metadata);
-// return metadata;
-
-// Add to generateDetailPage function in generate-detail-pages.js to handle missing properties
-function ensureTemplateProperties(template) {
-  if (!template.features || template.features.length === 0) {
-    template.features = [{
-      title: "Responsive Design",
-      description: "This template is optimized to display correctly on all devices and email clients."
-    }];
+/**
+ * Extract text content from a selector with truncation
+ */
+function extractTextContent($, selector, maxLength = 200) {
+  const elements = $(selector);
+  if (elements.length === 0) return '';
+  
+  let text = '';
+  
+  for (let i = 0; i < Math.min(3, elements.length); i++) {
+    text += $(elements[i]).text() + ' ';
+    if (text.length > maxLength) break;
   }
   
-  if (!template.designNotes) {
-    template.designNotes = "This template uses a clean, modern design with a focus on readability and engagement.";
+  if (text.length > maxLength) {
+    text = text.substring(0, maxLength) + '...';
   }
   
-  return template;
+  return text.trim();
 }
-
-// Add this to the render function for index.html
-function addPlaceholderTemplates() {
-  if (document.querySelector('.bookshelf').children.length === 0 || 
-      document.querySelector('.bookshelf').innerHTML.includes('No templates found')) {
-    
-    // Create a placeholder template card
-    const card = document.createElement('div');
-    card.className = 'email-card';
-    card.setAttribute('role', 'listitem');
-    card.id = 'template-sample';
-    
-    card.innerHTML = `
-      <a href="templates/cmg-demo-templates/sample-email-template.html" class="email-link">View Sample Template</a>
-      <div class="client-badge">CMG Demo</div>
-      <div class="email-thumbnail">
-        <img src="images/placeholder-email.svg" alt="Preview of Sample Email template" />
-      </div>
-      <div class="email-info">
-        <h3 class="email-title">Sample Template</h3>
-        <div class="email-meta">
-          <div class="tags">
-            <span class="tag">Demo</span>
-            <span class="tag">CMG Demo</span>
-          </div>
-          <div class="date">Mar 2025</div>
-        </div>
-      </div>
-    `;
-    
-    document.querySelector('.bookshelf').innerHTML = '';
-    document.querySelector('.bookshelf').appendChild(card);
-  }
-}
-
-// This function would be added to index.html
-// document.addEventListener('DOMContentLoaded', function() {
-//   setTimeout(addPlaceholderTemplates, 1000); // Wait for main script to run first
-// });
 
 /**
  * Infer tags based on content and filename
@@ -330,10 +273,11 @@ function inferTags(htmlContent, fileName) {
     'receipt': 'Transactional',
     'cart': 'E-commerce',
     'abandon': 'Recovery',
-    'recovery': 'Recovery'
+    'recovery': 'Recovery',
+    'gift': 'Gift',
+    'bifties': 'E-commerce'
   };
   
-
   // Check filename
   Object.keys(tagMappings).forEach(key => {
     if (fileName.toLowerCase().includes(key)) {

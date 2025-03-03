@@ -1,4 +1,4 @@
-name: Process Email Templates with Debug
+name: Process Email Templates
 
 on:
   push:
@@ -6,8 +6,14 @@ on:
       - main
     paths:
       - 'templates/**/*.html'
-  # Add manual trigger
+  # Manual trigger with options
   workflow_dispatch:
+    inputs:
+      process_all:
+        description: 'Process all templates (not just changed ones)'
+        required: false
+        default: 'true'
+        type: boolean
 
 jobs:
   process-templates:
@@ -31,13 +37,18 @@ jobs:
         run: |
           npm install puppeteer gifencoder canvas png-file-stream cheerio marked
       
-      # Debugging - List all template files
-      - name: Debug - List template files
+      # Detailed diagnostics about repository structure
+      - name: Diagnostic - Repository Structure
         run: |
-          echo "==== Listing all HTML files in templates directory ===="
-          find templates -name "*.html" -not -path "*/detail-page-template.html"
-          echo "==== Template files count ===="
-          find templates -name "*.html" -not -path "*/detail-page-template.html" | wc -l
+          echo "==== Repository Structure Overview ===="
+          echo "Content of templates directory:"
+          find templates -type d | sort
+          
+          echo "\nContent of docs directory:"
+          find docs -type d | sort 2>/dev/null || echo "docs directory may not exist yet"
+          
+          echo "\nHTML files in repository:"
+          find . -name "*.html" | grep -v "node_modules" | sort
       
       # Create required directories if they don't exist
       - name: Ensure directories exist
@@ -47,31 +58,53 @@ jobs:
           mkdir -p docs/data
           mkdir -p docs/templates
           mkdir -p docs/images
+          
+          echo "Directory structure created:"
+          ls -la docs/
+          ls -la docs/previews/
       
       # Copy placeholder image if needed
       - name: Copy placeholder image
         run: |
-          # Check if the placeholder image exists
+          # Check if the placeholder image exists in docs/images
           if [ ! -f docs/images/placeholder-email.svg ]; then
-            echo "Creating placeholder image directory"
-            mkdir -p docs/images
-            echo "Copying placeholder image"
-            cp templates/placeholder-email.svg docs/images/placeholder-email.svg || echo "Placeholder image not found, will use fallback method"
+            echo "Placeholder image not found in docs/images"
+            
+            # Check if it exists in the repository
+            if [ -f "docs/images/placeholder-email.svg" ]; then
+              echo "Found placeholder image at docs/images/placeholder-email.svg"
+              cp docs/images/placeholder-email.svg docs/images/placeholder-email.svg
+            elif [ -f "templates/placeholder-email.svg" ]; then
+              echo "Found placeholder image at templates/placeholder-email.svg"
+              cp templates/placeholder-email.svg docs/images/placeholder-email.svg
+            else
+              echo "Searching for placeholder SVG files..."
+              find . -name "*.svg" | grep -v "node_modules"
+              echo "Could not find placeholder image, will need to create one"
+            fi
+          else
+            echo "Placeholder image already exists at docs/images/placeholder-email.svg"
           fi
       
-      # Debugging - Check metadata before running scripts
-      - name: Debug - Check if templates.json exists
+      # Enhanced logging for processing steps
+      - name: Set processing environment
         run: |
-          if [ -f "docs/data/templates.json" ]; then
-            echo "==== Current templates.json content ===="
-            cat docs/data/templates.json
+          # If manual run with process_all=true or auto-triggered run, process all templates
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.process_all }}" = "true" ]; then
+            echo "PROCESS_ALL=true" >> $GITHUB_ENV
+            echo "Processing ALL templates (manual trigger with process_all=true)"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            echo "Processing only CHANGED templates (triggered by push)"
           else
-            echo "templates.json does not exist yet"
+            echo "PROCESS_ALL=false" >> $GITHUB_ENV
+            echo "Processing only CHANGED templates (manual trigger with process_all=false)"
           fi
       
       # Step 1: Generate static thumbnails
       - name: Generate static thumbnails
-        run: node scripts/thumbnail-generator.js || echo "Static thumbnail generation failed but continuing"
+        run: node scripts/thumbnail-generator.js
+        env:
+          PROCESS_ALL: ${{ env.PROCESS_ALL || 'false' }}
       
       # Step 2: Generate scrolling GIFs
       - name: Generate scrolling GIFs
@@ -79,36 +112,46 @@ jobs:
           # Find all HTML files in templates directory
           find templates -name "*.html" -not -path "*/detail-page-template.html" > template_files.txt
           if [ -s template_files.txt ]; then
-            echo "==== Template files found ===="
+            echo "==== Template files found for GIF generation ===="
             cat template_files.txt
             cat template_files.txt | xargs node scripts/scrolling-gif-generator.js || echo "GIF generation failed but continuing"
           else
-            echo "No HTML template files found to process"
+            echo "No HTML template files found to process for GIFs"
           fi
       
       # Step 3: Generate metadata for all templates
       - name: Generate template metadata
-        run: node scripts/metadata-generator.js || echo "Metadata generation failed but continuing"
+        run: node scripts/metadata-generator.js
       
       # Debugging - Check metadata after running scripts
       - name: Debug - Check templates.json after metadata generation
         run: |
           if [ -f "docs/data/templates.json" ]; then
-            echo "==== Updated templates.json content ===="
+            echo "==== templates.json content ===="
             cat docs/data/templates.json
           else
-            echo "templates.json was not created"
+            echo "templates.json was not created!"
+            echo "Current directory content:"
+            ls -la
+            echo "docs/data content:"
+            ls -la docs/data/ || echo "docs/data directory may not exist"
           fi
       
       # Step 4: Generate detail pages for each template
       - name: Generate detail pages
-        run: node scripts/generate-detail-pages.js || echo "Detail page generation failed but continuing"
+        run: node scripts/generate-detail-pages.js
       
-      # Debugging - List generated detail pages
-      - name: Debug - List generated detail pages
+      # Debugging - List generated preview assets
+      - name: Debug - List generated assets
         run: |
-          echo "==== Listing all generated detail pages ===="
-          find docs/templates -name "*.html"
+          echo "==== Static thumbnails ===="
+          find docs/previews/static -type f | sort
+          
+          echo "\n==== Animated GIFs ===="
+          find docs/previews/animated -type f | sort
+          
+          echo "\n==== Generated detail pages ===="
+          find docs/templates -name "*.html" | sort
       
       # Step 5: Commit and push all generated assets
       - name: Commit and push generated assets
@@ -116,5 +159,6 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add docs/
-          git commit -m "Auto-generate thumbnails, metadata, and detail pages" || echo "No changes to commit"
+          git status
+          git commit -m "Auto-generate thumbnails, metadata, and detail pages [skip ci]" || echo "No changes to commit"
           git push

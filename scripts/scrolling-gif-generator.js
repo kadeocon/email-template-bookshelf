@@ -35,13 +35,16 @@ async function main() {
     return;
   }
   
-  console.log(`Found ${htmlFiles.length} HTML files to process`);
+  console.log(`Found ${htmlFiles.length} HTML files to process for GIF generation:`);
+  htmlFiles.forEach(file => console.log(` - ${file}`));
   
   // Create directories if they don't exist
   ensureDirectoriesExist();
   
   // Launch browser
-  const browser = await puppeteer.launch();
+  const browser = await puppeteer.launch({
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
   
   // Process each file
   for (const filePath of htmlFiles) {
@@ -61,6 +64,11 @@ function getAllHtmlFiles(directory) {
   const results = [];
   
   function traverseDirectory(dir) {
+    if (!fs.existsSync(dir)) {
+      console.error(`Directory does not exist: ${dir}`);
+      return;
+    }
+    
     const files = fs.readdirSync(dir);
     
     for (const file of files) {
@@ -69,7 +77,7 @@ function getAllHtmlFiles(directory) {
       
       if (stat.isDirectory()) {
         traverseDirectory(fullPath);
-      } else if (file.endsWith('.html')) {
+      } else if (file.endsWith('.html') && !file.includes('detail-page-template')) {
         results.push(fullPath);
       }
     }
@@ -93,8 +101,8 @@ function cleanupTempDirectory() {
     for (const file of files) {
       fs.unlinkSync(path.join(config.tempDir, file));
     }
-    // Optionally remove the directory itself
-    // fs.rmdirSync(config.tempDir);
+    // Keep the directory for now
+    console.log(`Cleaned up ${files.length} temporary frame files`);
   }
 }
 
@@ -119,7 +127,10 @@ async function generateScrollingGif(htmlFilePath, browser) {
     });
     
     // Load the HTML content
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    await page.setContent(htmlContent, { 
+      waitUntil: 'networkidle0',
+      timeout: 60000
+    });
     
     // Get the full height of the email
     const emailHeight = await page.evaluate(() => {
@@ -131,8 +142,10 @@ async function generateScrollingGif(htmlFilePath, browser) {
       );
     });
     
+    console.log(`Email height for ${fileName}: ${emailHeight}px`);
+    
     // Calculate scroll step for smooth scrolling
-    const scrollStep = (emailHeight - config.height) / (config.totalFrames - 1);
+    const scrollStep = Math.max(1, Math.floor((emailHeight - config.height) / (config.totalFrames - 1)));
     
     // Create frame files
     const framePaths = [];
@@ -160,12 +173,16 @@ async function generateScrollingGif(htmlFilePath, browser) {
       });
       
       framePaths.push(framePath);
+      
+      if (i % 5 === 0) {
+        console.log(`  - Captured frame ${i+1}/${config.totalFrames} for ${fileName}`);
+      }
     }
     
     // Close the page
     await page.close();
     
-    // Create GIF from frames using method 1: GIFEncoder + Canvas
+    // Create GIF from frames
     await createGifFromFrames(framePaths, outputPath);
     
     console.log(`Created scrolling GIF: ${outputPath}`);
@@ -175,6 +192,8 @@ async function generateScrollingGif(htmlFilePath, browser) {
 }
 
 async function createGifFromFrames(framePaths, outputPath) {
+  console.log(`Creating GIF from ${framePaths.length} frames...`);
+  
   // Create a GIF encoder
   const encoder = new GIFEncoder(config.width, config.height);
   
@@ -195,21 +214,36 @@ async function createGifFromFrames(framePaths, outputPath) {
   const ctx = canvas.getContext('2d');
   
   // Add each frame to the GIF
+  let frameCount = 0;
   for (const framePath of framePaths) {
-    const image = new Image();
-    
-    // Wait for the image to load from file
-    await new Promise((resolve, reject) => {
-      image.onload = resolve;
-      image.onerror = reject;
-      image.src = framePath;
-    });
-    
-    // Draw the image on the canvas
-    ctx.drawImage(image, 0, 0);
-    
-    // Add the frame from canvas
-    encoder.addFrame(ctx);
+    try {
+      if (!fs.existsSync(framePath)) {
+        console.warn(`Frame file does not exist: ${framePath}`);
+        continue;
+      }
+      
+      const image = new Image();
+      
+      // Wait for the image to load from file
+      await new Promise((resolve, reject) => {
+        image.onload = resolve;
+        image.onerror = reject;
+        image.src = framePath;
+      });
+      
+      // Draw the image on the canvas
+      ctx.drawImage(image, 0, 0);
+      
+      // Add the frame from canvas
+      encoder.addFrame(ctx);
+      frameCount++;
+      
+      if (frameCount % 5 === 0 || frameCount === framePaths.length) {
+        console.log(`  - Added frame ${frameCount}/${framePaths.length} to GIF`);
+      }
+    } catch (err) {
+      console.error(`Error processing frame ${framePath}:`, err);
+    }
   }
   
   // Finish encoding
@@ -219,19 +253,6 @@ async function createGifFromFrames(framePaths, outputPath) {
   return new Promise((resolve, reject) => {
     stream.on('finish', resolve);
     stream.on('error', reject);
-  });
-}
-
-// Alternative method using png-file-stream
-async function createGifWithPngFileStream(framePaths, outputPath) {
-  return new Promise((resolve, reject) => {
-    const framePattern = path.join(config.tempDir, `${path.basename(outputPath, '.gif')}-frame-*.png`);
-    
-    pngFileStream(framePattern)
-      .pipe(new GIFEncoder(config.width, config.height))
-      .pipe(fs.createWriteStream(outputPath))
-      .on('finish', resolve)
-      .on('error', reject);
   });
 }
 

@@ -25,22 +25,113 @@ async function generateDetailPages() {
     fs.mkdirSync(config.detailPagesDir, { recursive: true });
   }
   
+  // Check if template data file exists
+  if (!fs.existsSync(config.templateDataFile)) {
+    console.error(`Template data file not found: ${config.templateDataFile}`);
+    return;
+  }
+  
+  // Check if detail page template exists
+  if (!fs.existsSync(config.detailPageTemplate)) {
+    console.error(`Detail page template not found: ${config.detailPageTemplate}`);
+    return;
+  }
+  
   // Load template data
-  const templateData = JSON.parse(fs.readFileSync(config.templateDataFile, 'utf8'));
+  let templateData;
+  try {
+    templateData = JSON.parse(fs.readFileSync(config.templateDataFile, 'utf8'));
+    console.log(`Loaded ${templateData.length} templates from ${config.templateDataFile}`);
+  } catch (error) {
+    console.error(`Error loading template data: ${error.message}`);
+    return;
+  }
   
   // Load detail page template
-  const pageTemplate = fs.readFileSync(config.detailPageTemplate, 'utf8');
+  let pageTemplate;
+  try {
+    pageTemplate = fs.readFileSync(config.detailPageTemplate, 'utf8');
+    console.log(`Loaded detail page template from ${config.detailPageTemplate}`);
+  } catch (error) {
+    console.error(`Error loading detail page template: ${error.message}`);
+    return;
+  }
   
   // Process each template
   for (const template of templateData) {
     try {
-      await generateDetailPage(template, pageTemplate);
+      console.log(`Generating detail page for template: ${template.id}`);
+      
+      // Ensure template has all required properties
+      const enhancedTemplate = ensureTemplateProperties(template);
+      
+      // Generate the detail page
+      await generateDetailPage(enhancedTemplate, pageTemplate);
     } catch (error) {
       console.error(`Error generating detail page for ${template.id}:`, error);
     }
   }
   
   console.log('Detail page generation complete!');
+}
+
+/**
+ * Ensure template has all required properties
+ */
+function ensureTemplateProperties(template) {
+  // Create a copy to avoid modifying the original
+  const enhancedTemplate = { ...template };
+  
+  // Ensure basic properties exist
+  if (!enhancedTemplate.title) {
+    enhancedTemplate.title = enhancedTemplate.id.split('-').map(capitalizeWord).join(' ');
+    console.log(`Added missing title for ${enhancedTemplate.id}: ${enhancedTemplate.title}`);
+  }
+  
+  if (!enhancedTemplate.description) {
+    enhancedTemplate.description = `${enhancedTemplate.title} email template`;
+    console.log(`Added missing description for ${enhancedTemplate.id}`);
+  }
+  
+  if (!enhancedTemplate.fullDescription) {
+    enhancedTemplate.fullDescription = enhancedTemplate.description;
+    console.log(`Added missing fullDescription for ${enhancedTemplate.id}`);
+  }
+  
+  // Ensure features exist
+  if (!enhancedTemplate.features || enhancedTemplate.features.length === 0) {
+    enhancedTemplate.features = [{
+      title: "Responsive Design",
+      description: "This template is optimized to display correctly on all devices and email clients."
+    }];
+    console.log(`Added default features for ${enhancedTemplate.id}`);
+  }
+  
+  // Ensure designNotes exist
+  if (!enhancedTemplate.designNotes) {
+    enhancedTemplate.designNotes = "This template uses a clean, modern design with a focus on readability and engagement.";
+    console.log(`Added default designNotes for ${enhancedTemplate.id}`);
+  }
+  
+  // Ensure preview paths exist
+  if (!enhancedTemplate.previewStatic) {
+    enhancedTemplate.previewStatic = `previews/static/${enhancedTemplate.id}.png`;
+  }
+  
+  if (!enhancedTemplate.previewAnimated) {
+    enhancedTemplate.previewAnimated = `previews/animated/${enhancedTemplate.id}.gif`;
+  }
+  
+  // Ensure client and tags
+  if (!enhancedTemplate.client) {
+    enhancedTemplate.client = "Generic";
+  }
+  
+  if (!enhancedTemplate.tags || enhancedTemplate.tags.length === 0) {
+    enhancedTemplate.tags = ["Template"];
+  }
+  
+  return enhancedTemplate;
 }
 
 /**
@@ -52,7 +143,12 @@ async function generateDetailPage(template, pageTemplate) {
   // Process markdown content if needed
   let processedDescription = template.fullDescription || template.description;
   if (template.fullDescription && template.fullDescription.includes('\n')) {
-    processedDescription = marked(template.fullDescription);
+    try {
+      processedDescription = marked(template.fullDescription);
+      console.log(`Processed markdown for ${template.id}`);
+    } catch (error) {
+      console.warn(`Error processing markdown for ${template.id}: ${error.message}`);
+    }
   }
   
   // Generate features HTML
@@ -73,11 +169,11 @@ async function generateDetailPage(template, pageTemplate) {
   }
   
   // Generate tags HTML
-  const tagsHTML = template.tags.map(tag => 
+  const tagsHTML = (template.tags || []).map(tag => 
     `<span class="tag">${tag}</span>`
   ).join('\n');
   
-  // Generate compatible with HTML
+  // Generate subject line HTML
   let subjectLineHTML = '';
   if (template.subjectLine) {
     subjectLineHTML = `
@@ -88,7 +184,7 @@ async function generateDetailPage(template, pageTemplate) {
   }
   
   // Format dates
-  const createdDate = formatDate(template.dateCreated || template.date);
+  const createdDate = formatDate(template.dateCreated || template.date || new Date().toISOString());
   const updatedDate = template.dateUpdated ? formatDate(template.dateUpdated) : createdDate;
   
   // Replace placeholders in template
@@ -134,6 +230,14 @@ function formatDate(dateStr) {
   } catch (e) {
     return dateStr;
   }
+}
+
+/**
+ * Capitalize first letter of a word
+ */
+function capitalizeWord(word) {
+  if (!word) return '';
+  return word.charAt(0).toUpperCase() + word.slice(1);
 }
 
 // Run the script

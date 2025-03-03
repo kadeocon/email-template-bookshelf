@@ -19,15 +19,27 @@ const config = {
 async function main() {
   console.log('Starting thumbnail generation process...');
   
-  // Get list of changed/added HTML files from git
-  const changedFiles = getChangedHtmlFiles();
+  // Check if we should process all files or just changed ones
+  const processAll = process.env.PROCESS_ALL === 'true';
   
-  if (changedFiles.length === 0) {
-    console.log('No HTML files were changed or added. Exiting.');
+  // Get list of HTML files to process
+  let filesToProcess;
+  
+  if (processAll) {
+    console.log('Processing ALL template files...');
+    filesToProcess = getAllHtmlFiles();
+  } else {
+    console.log('Processing only CHANGED template files...');
+    filesToProcess = getChangedHtmlFiles();
+  }
+  
+  if (filesToProcess.length === 0) {
+    console.log('No HTML files were found to process. Exiting.');
     return;
   }
   
-  console.log(`Found ${changedFiles.length} changed HTML files`);
+  console.log(`Found ${filesToProcess.length} HTML files to process:`);
+  filesToProcess.forEach(file => console.log(` - ${file}`));
   
   // Create directories if they don't exist
   ensureDirectoriesExist();
@@ -37,7 +49,7 @@ async function main() {
   const page = await browser.newPage();
   
   // Process each file
-  for (const filePath of changedFiles) {
+  for (const filePath of filesToProcess) {
     await processFile(filePath, page);
   }
   
@@ -47,6 +59,33 @@ async function main() {
   console.log('Thumbnail generation complete!');
 }
 
+function getAllHtmlFiles() {
+  const results = [];
+  
+  function traverseDirectory(dir) {
+    if (!fs.existsSync(dir)) {
+      console.log(`Directory does not exist: ${dir}`);
+      return;
+    }
+    
+    const files = fs.readdirSync(dir);
+    
+    for (const file of files) {
+      const fullPath = path.join(dir, file);
+      const stat = fs.statSync(fullPath);
+      
+      if (stat.isDirectory()) {
+        traverseDirectory(fullPath);
+      } else if (file.endsWith('.html') && !file.includes('detail-page-template')) {
+        results.push(fullPath);
+      }
+    }
+  }
+  
+  traverseDirectory(config.templatesDir);
+  return results;
+}
+
 function getChangedHtmlFiles() {
   try {
     // Get files changed in the most recent commit
@@ -54,12 +93,23 @@ function getChangedHtmlFiles() {
     const allChangedFiles = gitOutput.split('\n').filter(Boolean);
     
     // Filter to only HTML files in the templates directory
-    return allChangedFiles.filter(file => {
-      return file.startsWith(config.templatesDir) && file.endsWith('.html');
+    const changedHtmlFiles = allChangedFiles.filter(file => {
+      return file.startsWith(config.templatesDir) && 
+             file.endsWith('.html') && 
+             !file.includes('detail-page-template');
     });
+    
+    // If no changed HTML files, try processing all files
+    if (changedHtmlFiles.length === 0) {
+      console.log('No changed HTML files detected. Falling back to processing all files.');
+      return getAllHtmlFiles();
+    }
+    
+    return changedHtmlFiles;
   } catch (error) {
     console.error('Error getting changed files:', error);
-    return [];
+    console.log('Falling back to processing all files due to error.');
+    return getAllHtmlFiles();
   }
 }
 

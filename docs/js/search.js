@@ -27,6 +27,19 @@ async function loadTemplateData() {
     
     templates = await response.json();
     
+    // Check if we have templates loaded
+    if (templates.length === 0) {
+      addFallbackTemplate();
+    }
+    
+    // Fix path mismatch for testing purposes
+    // This allows the abandoned-cart template to work with sample-email-template.html
+    templates.forEach(template => {
+      if (template.id === 'abandoned-cart' && template.path === 'templates/cmg-demo-templates/abandoned-cart.html') {
+        template.path = 'templates/cmg-demo-templates/sample-email-template.html';
+      }
+    });
+    
     // Render template cards
     renderTemplateCards(templates);
     
@@ -43,38 +56,34 @@ async function loadTemplateData() {
   } catch (error) {
     console.error('Error loading template data:', error);
     
-    // Fallback to demo cards if templates.json is not yet available
-    console.log('Using placeholder templates');
-    
-    // Find all template cards and extract data
-    const templateCards = document.querySelectorAll('.email-card');
-    templates = Array.from(templateCards).map(card => {
-      const id = card.id.replace('template-', '');
-      const title = card.querySelector('.email-title').textContent;
-      const clientBadge = card.querySelector('.client-badge').textContent;
-      
-      // Extract tags
-      const tagElements = card.querySelectorAll('.tag');
-      const tags = Array.from(tagElements).map(tag => tag.textContent);
-      
-      // Extract date
-      const dateText = card.querySelector('.date').textContent;
-      
-      return {
-        id: id,
-        title: title,
-        client: clientBadge,
-        tags: tags,
-        date: dateText,
-        // Add other properties with defaults
-        description: `${title} email template`,
-        isCMGDemo: clientBadge === 'CMG Demo'
-      };
-    });
+    // Fallback to demo template if templates.json is not yet available
+    console.log('Using fallback template');
+    addFallbackTemplate();
     
     // Initialize with demo data
     initializeSearch();
   }
+}
+
+// Add a fallback template when no templates are found
+function addFallbackTemplate() {
+  templates = [{
+    id: "sample-email",
+    title: "Sample Email Template",
+    description: "A demonstration template for the Email Template Bookshelf project.",
+    subjectLine: "Welcome to the Email Template Bookshelf",
+    path: "templates/cmg-demo-templates/sample-email-template.html",
+    client: "CMG Demo",
+    dateCreated: "2025-03-03",
+    dateUpdated: "2025-03-03",
+    tags: ["Demo", "Placeholder", "CMG Demo"],
+    isCMGDemo: true,
+    previewStatic: "images/placeholder-email.svg",
+    previewAnimated: "images/placeholder-email.svg",
+    fullDescription: "This is a placeholder template to demonstrate the Email Template Bookshelf functionality. Add your own templates to replace this demo card."
+  }];
+  
+  console.log('Added fallback template');
 }
 
 // Render template cards based on data
@@ -103,13 +112,17 @@ function renderTemplateCards(templates) {
       `<span class="tag">${tag}</span>`
     ).join('');
     
+    // Define the template URL - point to detail page if it exists
+    const templateDetailUrl = `templates/${template.id}.html`;
+    const templateUrl = templateExists(templateDetailUrl) ? templateDetailUrl : template.path;
+    
     card.innerHTML = `
-      <a href="templates/${template.id}.html" class="email-link">View ${template.title} Template</a>
+      <a href="${templateUrl}" class="email-link">View ${template.title} Template</a>
       <div class="client-badge">${template.client}</div>
       <div class="email-thumbnail">
         <img src="${template.previewAnimated || template.previewStatic}" 
              alt="Preview of ${template.title} email template" 
-             onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgNjAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjYwMCIgZmlsbD0iI2YwZjBmMCIvPjxyZWN0IHg9IjUwIiB5PSI1MCIgd2lkdGg9IjMwMCIgaGVpZ2h0PSI1MDAiIHJ4PSI4IiBmaWxsPSIjZmZmZmZmIiBzdHJva2U9IiNkZGRkZGQiIHN0cm9rZS13aWR0aD0iMiIvPjxyZWN0IHg9IjUwIiB5PSI1MCIgd2lkdGg9IjMwMCIgaGVpZ2h0PSI2MCIgcng9IjgiIGZpbGw9IiM0OTJkN2QiLz48cmVjdCB4PSI4MCIgeT0iNzAiIHdpZHRoPSIxMjAiIGhlaWdodD0iMjAiIHJ4PSI0IiBmaWxsPSIjZmZmZmZmIiBvcGFjaXR5PSIwLjgiLz48cmVjdCB4PSI3MCIgeT0iMTMwIiB3aWR0aD0iMjYwIiBoZWlnaHQ9IjEyMCIgZmlsbD0iI2FjZmZkOSIgb3BhY2l0eT0iMC41Ii8+PHJlY3QgeD0iMTIwIiB5PSIxNjAiIHdpZHRoPSIxNjAiIGhlaWdodD0iMjAiIHJ4PSI0IiBmaWxsPSIjMzMzMzMzIi8+PHJlY3QgeD0iMTYwIiB5PSIxOTAiIHdpZHRoPSI4MCIgaGVpZ2h0PSIyMCIgcng9IjQiIGZpbGw9IiMzMzMzMzMiIG9wYWNpdHk9IjAuNiIvPjxyZWN0IHg9IjcwIiB5PSIyNzAiIHdpZHRoPSIyNjAiIGhlaWdodD0iMSIgZmlsbD0iI2VlZWVlZSIvPjxyZWN0IHg9IjgwIiB5PSIyOTAiIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgZmlsbD0iI2YwZjBmMCIvPjxyZWN0IHg9IjE4MCIgeT0iMzAwIiB3aWR0aD0iMTMwIiBoZWlnaHQ9IjE1IiByeD0iMiIgZmlsbD0iIzMzMzMzMyIgb3BhY2l0eT0iMC44Ii8+PHJlY3QgeD0iMTgwIiB5PSIzMjUiIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAiIHJ4PSIyIiBmaWxsPSIjNjY2NjY2IiBvcGFjaXR5PSIwLjYiLz48cmVjdCB4PSIxODAiIHk9IjM0NSIgd2lkdGg9IjcwIiBoZWlnaHQ9IjE1IiByeD0iMiIgZmlsbD0iIzMzMzMzMyIvPjxyZWN0IHg9IjEzMCIgeT0iNDAwIiB3aWR0aD0iMTQwIiBoZWlnaHQ9IjQwIiByeD0iNCIgZmlsbD0iIzQ5MmQ3ZCIvPjxyZWN0IHg9IjE1NSIgeT0iNDE1IiB3aWR0aD0iOTAiIGhlaWdodD0iMTAiIHJ4PSIyIiBmaWxsPSIjZmZmZmZmIi8+PHJlY3QgeD0iNTAiIHk9IjQ5MCIgd2lkdGg9IjMwMCIgaGVpZ2h0PSI2MCIgcng9IjgiIGZpbGw9IiNmNWY1ZjUiLz48cmVjdCB4PSIxNTAiIHk9IjUxMCIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMCIgcng9IjIiIGZpbGw9IiM5OTk5OTkiIG9wYWNpdHk9IjAuNiIvPjxyZWN0IHg9IjE3MCIgeT0iNTMwIiB3aWR0aD0iNjAiIGhlaWdodD0iOCIgcng9IjIiIGZpbGw9IiM5OTk5OTkiIG9wYWNpdHk9IjAuNCIvPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE3NSwgNTAwKSBzY2FsZSgwLjYpIj48cGF0aCBkPSJNNDAsMCBMNDAsMzIgTDAsMzIgTDAsMCBMNDAsMCBaIE0zNiw0IEw0LDQgTDQsMjggTDM2LDI4IEwzNiw0IFoiIGZpbGw9IiM0OTJkN2QiIG9wYWNpdHk9IjAuMyIvPjxwYXRoIGQ9Ik0yMCwxOCBMNCw4IEw0LDI4IEwzNiwyOCBMMzYsOCBMMjAsMTggWiIgZmlsbD0iIzQ5MmQ3ZCIgb3BhY2l0eT0iMC4zIi8+PHBhdGggZD0iTTIwLDE0IEwzNiw0IEw0LDQgTDIwLDE0IFoiIGZpbGw9IiM0OTJkN2QiIG9wYWNpdHk9IjAuMyIvPjwvZz48L3N2Zz4='" />
+             onerror="this.src='images/placeholder-email.svg'" />
       </div>
       <div class="email-info">
         <h3 class="email-title">${template.title}</h3>
@@ -124,6 +137,13 @@ function renderTemplateCards(templates) {
     
     templateContainer.appendChild(card);
   });
+}
+
+// Check if a template file exists (simple check for testing purposes)
+function templateExists(url) {
+  // In production, you might want to do a more robust check
+  // This is a simple placeholder implementation
+  return url.includes('.html');
 }
 
 // Update filter buttons based on available tags

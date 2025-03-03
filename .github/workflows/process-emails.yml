@@ -1,4 +1,4 @@
-name: Process Email Templates
+name: Process Email Templates with Debug
 
 on:
   push:
@@ -31,6 +31,14 @@ jobs:
         run: |
           npm install puppeteer gifencoder canvas png-file-stream cheerio marked
       
+      # Debugging - List all template files
+      - name: Debug - List template files
+        run: |
+          echo "==== Listing all HTML files in templates directory ===="
+          find templates -name "*.html" -not -path "*/detail-page-template.html"
+          echo "==== Template files count ===="
+          find templates -name "*.html" -not -path "*/detail-page-template.html" | wc -l
+      
       # Create required directories if they don't exist
       - name: Ensure directories exist
         run: |
@@ -51,6 +59,16 @@ jobs:
             cp templates/placeholder-email.svg docs/images/placeholder-email.svg || echo "Placeholder image not found, will use fallback method"
           fi
       
+      # Debugging - Check metadata before running scripts
+      - name: Debug - Check if templates.json exists
+        run: |
+          if [ -f "docs/data/templates.json" ]; then
+            echo "==== Current templates.json content ===="
+            cat docs/data/templates.json
+          else
+            echo "templates.json does not exist yet"
+          fi
+      
       # Step 1: Generate static thumbnails
       - name: Generate static thumbnails
         run: node scripts/thumbnail-generator.js || echo "Static thumbnail generation failed but continuing"
@@ -61,6 +79,8 @@ jobs:
           # Find all HTML files in templates directory
           find templates -name "*.html" -not -path "*/detail-page-template.html" > template_files.txt
           if [ -s template_files.txt ]; then
+            echo "==== Template files found ===="
+            cat template_files.txt
             cat template_files.txt | xargs node scripts/scrolling-gif-generator.js || echo "GIF generation failed but continuing"
           else
             echo "No HTML template files found to process"
@@ -70,9 +90,25 @@ jobs:
       - name: Generate template metadata
         run: node scripts/metadata-generator.js || echo "Metadata generation failed but continuing"
       
+      # Debugging - Check metadata after running scripts
+      - name: Debug - Check templates.json after metadata generation
+        run: |
+          if [ -f "docs/data/templates.json" ]; then
+            echo "==== Updated templates.json content ===="
+            cat docs/data/templates.json
+          else
+            echo "templates.json was not created"
+          fi
+      
       # Step 4: Generate detail pages for each template
       - name: Generate detail pages
         run: node scripts/generate-detail-pages.js || echo "Detail page generation failed but continuing"
+      
+      # Debugging - List generated detail pages
+      - name: Debug - List generated detail pages
+        run: |
+          echo "==== Listing all generated detail pages ===="
+          find docs/templates -name "*.html"
       
       # Step 5: Commit and push all generated assets
       - name: Commit and push generated assets

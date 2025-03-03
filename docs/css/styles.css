@@ -253,6 +253,74 @@ a:focus {
     gap: 2rem;
 }
 
+
+/* Email cards - adjusted height and padding */
+.email-card {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+    transition: var(--transition);
+    position: relative;
+    height: 370px; /* Increased height to accommodate tags */
+    border: 1px solid #eaeaea;
+}
+
+/* Email info section - fixed height and overflow handling */
+.email-info {
+    padding: 1rem;
+    height: 100px; /* Fixed height for consistency */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Tags container - better spacing and overflow handling */
+.tags {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+    max-height: 50px; /* Limit height to approximately 2 lines */
+    overflow: hidden;
+    position: relative;
+    margin-bottom: 10px; /* Ensure space between tags and date */
+}
+
+/* Tag styling */
+.tag {
+    background-color: var(--light-accent);
+    color: var(--primary-color);
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    margin-bottom: 5px; /* Add bottom margin to each tag */
+    display: inline-block;
+}
+
+/* Ellipsis tag styling */
+.tag-ellipsis {
+    font-size: 0.7rem;
+    font-weight: 500;
+    margin-bottom: 5px;
+    color: #666;
+    cursor: default;
+}
+
+/* Email meta section - push date to bottom */
+.email-meta {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+}
+
+/* Date positioning */
+.date {
+    align-self: flex-end;
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
 /* Email cards */
 .email-card {
     background-color: white;

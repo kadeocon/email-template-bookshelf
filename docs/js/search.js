@@ -17,6 +17,9 @@ noResultsMessage.textContent = 'No templates match your search criteria.';
 noResultsMessage.style.display = 'none';
 templateContainer.after(noResultsMessage);
 
+// Maximum number of tags to display per card before truncating
+const MAX_TAGS_PER_CARD = 3;
+
 // Load template data
 async function loadTemplateData() {
   try {
@@ -48,6 +51,9 @@ async function loadTemplateData() {
     
     // Initialize search and filters
     initializeSearch();
+    
+    // Handle tag overflow
+    handleTagOverflow();
     
     // Initial announcement
     updateScreenReaderAnnouncement(`Loaded ${templates.length} templates.`);
@@ -107,7 +113,7 @@ function renderTemplateCards(templates) {
     const dateObj = new Date(template.dateCreated || template.date);
     const displayDate = dateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
     
-    // Create tags HTML
+    // Create tags HTML - all tags are created but only a subset will be visible
     const tagsHTML = template.tags.map(tag => 
       `<span class="tag">${tag}</span>`
     ).join('');
@@ -136,6 +142,43 @@ function renderTemplateCards(templates) {
     `;
     
     templateContainer.appendChild(card);
+  });
+  
+  // Handle tag overflow after rendering cards
+  handleTagOverflow();
+}
+
+/**
+ * Handles tag overflow in email cards
+ * Adds an ellipsis if tags overflow and limits displayed tags
+ */
+function handleTagOverflow() {
+  const tagContainers = document.querySelectorAll('.tags');
+  
+  tagContainers.forEach(container => {
+    const tags = container.querySelectorAll('.tag');
+    if (tags.length <= MAX_TAGS_PER_CARD) return; // No need to truncate if under the limit
+    
+    // Remove any existing ellipsis
+    const existingEllipsis = container.querySelector('.tag-ellipsis');
+    if (existingEllipsis) {
+      existingEllipsis.remove();
+    }
+    
+    // Hide excess tags
+    for (let i = MAX_TAGS_PER_CARD; i < tags.length; i++) {
+      tags[i].style.display = 'none';
+    }
+    
+    // Calculate how many tags are hidden
+    const hiddenCount = tags.length - MAX_TAGS_PER_CARD;
+    
+    // Add ellipsis element
+    const ellipsis = document.createElement('span');
+    ellipsis.className = 'tag-ellipsis';
+    ellipsis.textContent = `+${hiddenCount} more`;
+    ellipsis.title = Array.from(tags).slice(MAX_TAGS_PER_CARD).map(tag => tag.textContent).join(', ');
+    container.appendChild(ellipsis);
   });
 }
 
@@ -295,6 +338,9 @@ function updateTemplateDisplay(filteredTemplates) {
       visibleCount++;
     }
   });
+  
+  // Re-apply tag overflow handling since cards may have been hidden/shown
+  handleTagOverflow();
   
   // Update screen reader announcement
   updateScreenReaderAnnouncement(`Found ${visibleCount} templates matching your criteria.`);

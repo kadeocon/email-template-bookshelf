@@ -13,6 +13,9 @@
     
     <!-- Stylesheet -->
     <link rel="stylesheet" href="css/styles.css">
+    
+    <!-- Site Configuration -->
+    <script src="js/config.js"></script>
 </head>
 <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -20,7 +23,7 @@
     <header>
         <div class="site-header">
             <div class="logo" role="banner">
-                <img src="images/placeholder-email.svg" alt="Email Template Bookshelf Logo" width="40" height="40" />
+                <img src="https://kadeoconnor.com/staging/1137/wp-content/uploads/2024/11/Kade-Logo-flat.png" alt="Kade O'Connor Logo" />
                 Email Template Bookshelf
             </div>
             <nav aria-label="Main navigation">
@@ -87,7 +90,7 @@
     <script>
         // Backup script to ensure we always have at least one template card shown
         document.addEventListener('DOMContentLoaded', function() {
-            // Give the main script time to run first
+            // Wait for main script to run first
             setTimeout(function() {
                 const bookshelf = document.querySelector('.bookshelf');
                 
@@ -125,6 +128,17 @@
                     }
                 }
             }, 1000); // Wait 1 second for main script to run
+            
+            // Update logo source with configuration if available
+            document.addEventListener('DOMContentLoaded', function() {
+                if (window.siteConfig && window.siteConfig.logoUrl) {
+                    const logoImages = document.querySelectorAll('.logo img');
+                    logoImages.forEach(img => {
+                        img.src = window.siteConfig.logoUrl;
+                        img.alt = window.siteConfig.logoAlt || "Logo";
+                    });
+                }
+            });
         });
     </script>
 </body>

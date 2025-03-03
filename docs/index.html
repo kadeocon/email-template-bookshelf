@@ -51,25 +51,8 @@
         <div aria-live="polite" id="search-results-announcement" class="sr-only"></div>
         
         <div class="bookshelf" role="list">
-            <!-- Initial placeholder card that will be shown if no templates are loaded -->
-            <div class="email-card" role="listitem" id="template-fallback">
-                <a href="templates/cmg-demo-templates/sample-email-template.html" class="email-link">View Sample Email Template</a>
-                <div class="client-badge">CMG Demo</div>
-                <div class="email-thumbnail">
-                    <img src="images/placeholder-email.svg" alt="Preview of Sample Email template" />
-                </div>
-                <div class="email-info">
-                    <h3 class="email-title">Sample Email Template</h3>
-                    <div class="email-meta">
-                        <div class="tags">
-                            <span class="tag">Demo</span>
-                            <span class="tag">CMG Demo</span>
-                        </div>
-                        <div class="date">Mar 2025</div>
-                    </div>
-                </div>
-            </div>
-            <!-- This will be replaced by dynamically loaded templates if they exist -->
+            <!-- Template cards will be dynamically generated -->
+            <div class="loading-message">Loading email templates...</div>
         </div>
         
         <section id="about" class="about-section">
@@ -87,59 +70,5 @@
     
     <!-- JavaScript -->
     <script src="js/search.js"></script>
-    <script>
-        // Backup script to ensure we always have at least one template card shown
-        document.addEventListener('DOMContentLoaded', function() {
-            // Wait for main script to run first
-            setTimeout(function() {
-                const bookshelf = document.querySelector('.bookshelf');
-                
-                // Check if there are no templates or if we have the "No templates found" message
-                if (bookshelf.children.length === 0 || 
-                    bookshelf.innerHTML.includes('No templates found')) {
-                    
-                    // Create a fallback card if the original was replaced
-                    if (!document.getElementById('template-fallback')) {
-                        const card = document.createElement('div');
-                        card.className = 'email-card';
-                        card.setAttribute('role', 'listitem');
-                        card.id = 'template-fallback';
-                        
-                        card.innerHTML = `
-                            <a href="templates/cmg-demo-templates/sample-email-template.html" class="email-link">View Sample Email Template</a>
-                            <div class="client-badge">CMG Demo</div>
-                            <div class="email-thumbnail">
-                                <img src="images/placeholder-email.svg" alt="Preview of Sample Email template" />
-                            </div>
-                            <div class="email-info">
-                                <h3 class="email-title">Sample Email Template</h3>
-                                <div class="email-meta">
-                                    <div class="tags">
-                                        <span class="tag">Demo</span>
-                                        <span class="tag">CMG Demo</span>
-                                    </div>
-                                    <div class="date">Mar 2025</div>
-                                </div>
-                            </div>
-                        `;
-                        
-                        bookshelf.innerHTML = '';
-                        bookshelf.appendChild(card);
-                    }
-                }
-            }, 1000); // Wait 1 second for main script to run
-            
-            // Update logo source with configuration if available
-            document.addEventListener('DOMContentLoaded', function() {
-                if (window.siteConfig && window.siteConfig.logoUrl) {
-                    const logoImages = document.querySelectorAll('.logo img');
-                    logoImages.forEach(img => {
-                        img.src = window.siteConfig.logoUrl;
-                        img.alt = window.siteConfig.logoAlt || "Logo";
-                    });
-                }
-            });
-        });
-    </script>
 </body>
 </html>

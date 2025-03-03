@@ -32,16 +32,10 @@ async function loadTemplateData() {
     
     // Check if we have templates loaded
     if (templates.length === 0) {
-      addFallbackTemplate();
+      console.log('No templates found in templates.json');
+      displayNoTemplatesMessage();
+      return;
     }
-    
-    // Fix path mismatch for testing purposes
-    // This allows the abandoned-cart template to work with sample-email-template.html
-    templates.forEach(template => {
-      if (template.id === 'abandoned-cart' && template.path === 'templates/cmg-demo-templates/abandoned-cart.html') {
-        template.path = 'templates/cmg-demo-templates/sample-email-template.html';
-      }
-    });
     
     // Render template cards
     renderTemplateCards(templates);
@@ -61,35 +55,13 @@ async function loadTemplateData() {
     console.log('Templates loaded:', templates.length);
   } catch (error) {
     console.error('Error loading template data:', error);
-    
-    // Fallback to demo template if templates.json is not yet available
-    console.log('Using fallback template');
-    addFallbackTemplate();
-    
-    // Initialize with demo data
-    initializeSearch();
+    displayNoTemplatesMessage();
   }
 }
 
-// Add a fallback template when no templates are found
-function addFallbackTemplate() {
-  templates = [{
-    id: "sample-email",
-    title: "Sample Email Template",
-    description: "A demonstration template for the Email Template Bookshelf project.",
-    subjectLine: "Welcome to the Email Template Bookshelf",
-    path: "templates/cmg-demo-templates/sample-email-template.html",
-    client: "CMG Demo",
-    dateCreated: "2025-03-03",
-    dateUpdated: "2025-03-03",
-    tags: ["Demo", "Placeholder", "CMG Demo"],
-    isCMGDemo: true,
-    previewStatic: "images/placeholder-email.svg",
-    previewAnimated: "images/placeholder-email.svg",
-    fullDescription: "This is a placeholder template to demonstrate the Email Template Bookshelf functionality. Add your own templates to replace this demo card."
-  }];
-  
-  console.log('Added fallback template');
+// Display message when no templates are found
+function displayNoTemplatesMessage() {
+  templateContainer.innerHTML = '<div class="no-templates">No email templates found. Add templates to the "templates" directory to get started.</div>';
 }
 
 // Render template cards based on data
@@ -98,7 +70,7 @@ function renderTemplateCards(templates) {
   templateContainer.innerHTML = '';
   
   if (templates.length === 0) {
-    templateContainer.innerHTML = '<p class="no-templates">No templates found. Add templates to the "templates" directory to get started.</p>';
+    displayNoTemplatesMessage();
     return;
   }
   
@@ -110,7 +82,7 @@ function renderTemplateCards(templates) {
     card.id = `template-${template.id}`;
     
     // Format date for display
-    const dateObj = new Date(template.dateCreated || template.date);
+    const dateObj = new Date(template.dateCreated || template.date || new Date());
     const displayDate = dateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
     
     // Create tags HTML - all tags are created but only a subset will be visible
@@ -120,10 +92,9 @@ function renderTemplateCards(templates) {
     
     // Define the template URL - point to detail page if it exists
     const templateDetailUrl = `templates/${template.id}.html`;
-    const templateUrl = templateExists(templateDetailUrl) ? templateDetailUrl : template.path;
     
     card.innerHTML = `
-      <a href="${templateUrl}" class="email-link">View ${template.title} Template</a>
+      <a href="${templateDetailUrl}" class="email-link">View ${template.title} Template</a>
       <div class="client-badge">${template.client}</div>
       <div class="email-thumbnail">
         <img src="${template.previewAnimated || template.previewStatic}" 
@@ -180,13 +151,6 @@ function handleTagOverflow() {
     ellipsis.title = Array.from(tags).slice(MAX_TAGS_PER_CARD).map(tag => tag.textContent).join(', ');
     container.appendChild(ellipsis);
   });
-}
-
-// Check if a template file exists (simple check for testing purposes)
-function templateExists(url) {
-  // In production, you might want to do a more robust check
-  // This is a simple placeholder implementation
-  return url.includes('.html');
 }
 
 // Update filter buttons based on available tags

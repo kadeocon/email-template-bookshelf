@@ -31,7 +31,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 20  # Updated from 16 to 20
       
       - name: Install dependencies
         run: |
@@ -44,11 +44,14 @@ jobs:
           echo "Content of templates directory:"
           find templates -type d | sort
           
-          echo "\nContent of docs directory:"
+          echo -e "\nContent of docs directory:"
           find docs -type d | sort 2>/dev/null || echo "docs directory may not exist yet"
           
-          echo "\nHTML files in repository:"
+          echo -e "\nHTML files in repository:"
           find . -name "*.html" | grep -v "node_modules" | sort
+          
+          echo -e "\nScript files in repository:"
+          find scripts -type f | sort
       
       # Create required directories if they don't exist
       - name: Ensure directories exist
@@ -147,10 +150,10 @@ jobs:
           echo "==== Static thumbnails ===="
           find docs/previews/static -type f | sort
           
-          echo "\n==== Animated GIFs ===="
+          echo -e "\n==== Animated GIFs ===="
           find docs/previews/animated -type f | sort
           
-          echo "\n==== Generated detail pages ===="
+          echo -e "\n==== Generated detail pages ===="
           find docs/templates -name "*.html" | sort
       
       # Step 5: Commit and push all generated assets

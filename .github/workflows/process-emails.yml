@@ -63,12 +63,16 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20
-          cache: 'npm'
       
       - name: Install dependencies
         run: |
-          # Use npm ci for more reliable dependency installation
-          npm ci
+          # Install dependencies from package.json (if it exists)
+          if [ -f "package.json" ]; then
+            npm install
+          else
+            # Fallback to manual installation
+            npm install puppeteer gifencoder canvas png-file-stream cheerio marked
+          fi
           
           # Check if installation was successful
           echo "Checking if puppeteer is installed correctly:"
@@ -157,17 +161,33 @@ jobs:
       
       # Step 1: Generate template metadata with timeout
       - name: Generate template metadata
-        run: npm run generate-metadata
+        run: |
+          # Check if we have npm scripts
+          if grep -q '"generate-metadata"' package.json 2>/dev/null; then
+            npm run generate-metadata
+          else
+            node scripts/metadata-generator.js
+          fi
       
       # Step 2: Validate and fix paths with timeout
       - name: Validate and fix paths
-        run: npm run validate-paths
+        run: |
+          # Check if we have npm scripts
+          if grep -q '"validate-paths"' package.json 2>/dev/null; then
+            npm run validate-paths
+          else
+            node scripts/path-validator.js
+          fi
       
       # Step 3: Generate static thumbnails with timeout and memory limit
       - name: Generate static thumbnails
         run: |
           # Set Node.js memory limit
-          NODE_OPTIONS="--max-old-space-size=4096" npm run generate-thumbnails
+          if grep -q '"generate-thumbnails"' package.json 2>/dev/null; then
+            NODE_OPTIONS="--max-old-space-size=4096" npm run generate-thumbnails
+          else
+            NODE_OPTIONS="--max-old-space-size=4096" node scripts/enhanced-thumbnail-generator.js
+          fi
           
           # Check if thumbnails were generated
           THUMBNAIL_COUNT=$(find docs/previews/static -name "*.png" | wc -l)
@@ -180,7 +200,11 @@ jobs:
       - name: Generate scrolling GIFs
         run: |
           # Set Node.js memory limit
-          NODE_OPTIONS="--max-old-space-size=4096" npm run generate-gifs
+          if grep -q '"generate-gifs"' package.json 2>/dev/null; then
+            NODE_OPTIONS="--max-old-space-size=4096" npm run generate-gifs
+          else  
+            NODE_OPTIONS="--max-old-space-size=4096" node scripts/enhanced-gif-generator.js
+          fi
           
           # Check if GIFs were generated
           GIF_COUNT=$(find docs/previews/animated -name "*.gif" | wc -l)
@@ -191,7 +215,12 @@ jobs:
       
       # Step 5: Generate detail pages with timeout
       - name: Generate detail pages
-        run: npm run generate-pages
+        run: |
+          if grep -q '"generate-pages"' package.json 2>/dev/null; then
+            npm run generate-pages
+          else
+            node scripts/generate-detail-pages.js
+          fi
       
       # Debugging - List generated assets
       - name: Debug - List generated assets

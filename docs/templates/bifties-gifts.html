@@ -35,7 +35,7 @@
         
         <div class="template-header">
             <div>
-                <div class="client-badge">Client</div>
+                <div class="client-badge">Templates</div>
                 <h1 class="template-title">Bifties Gifts</h1>
                 
                 <div class="template-metadata">
@@ -62,7 +62,7 @@
             </div>
             
             <div class="template-actions">
-                <a href="../client-templates/bifties-gifts.html" target="_blank" class="btn">View HTML</a>
+                <a href="../client-templates/Bifties-Gifts.html" target="_blank" class="btn">View HTML</a>
             </div>
         </div>
         
@@ -75,7 +75,7 @@
                 </div>
                 
                 <div class="preview-container">
-                    <img src="../previews/animated/bifties-gifts.gif" alt="Animated preview of Bifties Gifts email template" onerror="this.src='../images/placeholder-email.png'" />
+                    <img src="../previews/animated/Bifties-Gifts.gif" alt="Animated preview of Bifties Gifts email template" onerror="this.src='../images/placeholder-email.png'" />
                 </div>
             </div>
             
@@ -133,9 +133,9 @@
         
         // Sample content for each tab
         const tabContent = {
-            'animated-tab': '<img src="../previews/animated/bifties-gifts.gif" alt="Animated preview of Bifties Gifts email template" onerror="this.src=\'../images/placeholder-email.png\'" />',
-            'static-tab': '<img src="../previews/static/bifties-gifts.png" alt="Static preview of Bifties Gifts email template" onerror="this.src=\'../images/placeholder-email.png\'" />',
-            'live-tab': '<iframe class="preview-iframe" src="../client-templates/bifties-gifts.html" title="Live preview of Bifties Gifts email template"></iframe>'
+            'animated-tab': '<img src="../previews/animated/Bifties-Gifts.gif" alt="Animated preview of Bifties Gifts email template" onerror="this.src=\'../images/placeholder-email.png\'" />',
+            'static-tab': '<img src="../previews/static/Bifties-Gifts.png" alt="Static preview of Bifties Gifts email template" onerror="this.src=\'../images/placeholder-email.png\'" />',
+            'live-tab': '<iframe class="preview-iframe" src="../client-templates/Bifties-Gifts.html" title="Live preview of Bifties Gifts email template"></iframe>'
         };
         
         tabs.forEach(tab => {
@@ -156,7 +156,7 @@
                 if (!response.ok) return;
                 
                 const templates = await response.json();
-                const currentTemplate = templates.find(t => t.id === 'bifties-gifts');
+                const currentTemplate = templates.find(t => t.id === 'Bifties-Gifts');
                 
                 if (!currentTemplate) return;
                 

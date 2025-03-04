@@ -1,1 +1,69 @@
-[]
+[
+  {
+    "id": "bifties-gifts",
+    "title": "Bifties Gifts",
+    "description": "Promotion for gift box packages for graduation season",
+    "path": "templates/client-templates/bifties-gifts.html",
+    "tags": [
+      "E-commerce",
+      "Retail",
+      "Products"
+    ],
+    "client": "Client",
+    "previewStatic": "previews/static/bifties-gifts.png",
+    "previewAnimated": "previews/animated/bifties-gifts.gif",
+    "fullDescription": "The client aimed to target campus students and faculty for graduation season, promoting stocked sets of gift products curated from Black creators. We decided to highlight 3 boxes in partifular, and reinforce secondary CTAs to highlight Corporate Gifting and the Free Shipping policy. We incorporated benefits from their Community webpage to introduce the brand and its mission to our list audience.",
+    "designNotes": "A CAN-SPAM compliant footer connected to our list is added post design approval and tested before launch.",
+    "subjectLine": "Unbox Black culture with Bifties 🎁",
+    "features": [
+      {
+        "title": "Paired with Retargeting",
+        "description": "A comprehensive set of web banner display ads were also created and retargeted in conjuction with the 2 send campaign."
+      },
+      {
+        "title": "Responsive Layout",
+        "description": "Fully responsive design that looks great on all devices from desktop to mobile."
+      },
+      {
+        "title": "Brand Alignment",
+        "description": "Closely follows brand standards set by client's home website"
+      }
+    ]
+  },
+  {
+    "id": "abandoned-cart",
+    "title": "Abandoned Cart Email",
+    "description": "Recovery email for abandoned shopping carts with product reminders.",
+    "path": "templates/cmg-demo-templates/abandoned-cart.html",
+    "tags": [
+      "E-commerce",
+      "Recovery",
+      "CMG Demo"
+    ],
+    "client": "CMG Demo",
+    "isCMGDemo": true,
+    "previewStatic": "previews/static/abandoned-cart.png",
+    "previewAnimated": "previews/animated/abandoned-cart.gif",
+    "fullDescription": "This abandoned cart recovery email template was created for e-commerce clients looking to recapture lost sales. The design is optimized to remind customers of items left in their cart and encourage completion of the purchase through compelling imagery and strategic CTAs.",
+    "designNotes": "The template uses a minimalist design focused on highlighting the abandoned products. The color scheme can be easily customized to match your brand identity while maintaining accessibility standards.",
+    "subjectLine": "Your Cart is Waiting - Complete Your Purchase Today!",
+    "features": [
+      {
+        "title": "Dynamic Product Display",
+        "description": "Automatically pulls abandoned product images, descriptions, and prices from your e-commerce platform."
+      },
+      {
+        "title": "Responsive Layout",
+        "description": "Fully responsive design that looks great on all devices from desktop to mobile."
+      },
+      {
+        "title": "Personalization",
+        "description": "Easy merge field integration for customer name and personalized recommendations."
+      },
+      {
+        "title": "Customizable Timing",
+        "description": "Template can be configured for different abandonment durations (1 hour, 24 hours, etc.)."
+      }
+    ]
+  }
+]

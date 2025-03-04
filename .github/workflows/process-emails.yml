@@ -52,6 +52,10 @@ jobs:
           
           echo -e "\nScript files in repository:"
           find scripts -type f | sort
+          
+          # Show full content of template directories
+          echo -e "\nFull content of template directories:"
+          find templates -type f | grep -v "node_modules" | sort
       
       # Create required directories if they don't exist
       - name: Ensure directories exist
@@ -89,25 +93,33 @@ jobs:
             echo "Placeholder image already exists at docs/images/placeholder-email.svg"
           fi
       
+      # Initial diagnostic step
+      - name: Pre-processing Diagnostic
+        run: |
+          echo "==== TEMPLATE HTML ANALYSIS ===="
+          # Find all HTML files in templates directory
+          for file in $(find templates -name "*.html" -not -path "*/detail-page-template.html"); do
+            echo -e "\nAnalyzing file: $file"
+            echo "File exists: $(test -f $file && echo Yes || echo No)"
+            echo "File size: $(stat -c %s $file) bytes"
+            echo "Checking for METADATA comment..."
+            grep -A 5 "METADATA:" "$file" || echo "No METADATA found"
+            echo "Checking for title tag..."
+            grep -o "<title>.*</title>" "$file" || echo "No title tag found"
+          done
+      
       # Enhanced logging for processing steps
       - name: Set processing environment
         run: |
-          # If manual run with process_all=true or auto-triggered run, process all templates
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.process_all }}" = "true" ]; then
-            echo "PROCESS_ALL=true" >> $GITHUB_ENV
-            echo "Processing ALL templates (manual trigger with process_all=true)"
-          elif [ "${{ github.event_name }}" = "push" ]; then
-            echo "Processing only CHANGED templates (triggered by push)"
-          else
-            echo "PROCESS_ALL=false" >> $GITHUB_ENV
-            echo "Processing only CHANGED templates (manual trigger with process_all=false)"
-          fi
+          # Always process all templates for now
+          echo "PROCESS_ALL=true" >> $GITHUB_ENV
+          echo "Processing ALL templates (forced for debugging)"
       
       # Step 1: Generate static thumbnails
       - name: Generate static thumbnails
         run: node scripts/thumbnail-generator.js
         env:
-          PROCESS_ALL: ${{ env.PROCESS_ALL || 'false' }}
+          PROCESS_ALL: true
       
       # Step 2: Generate scrolling GIFs
       - name: Generate scrolling GIFs
@@ -155,6 +167,9 @@ jobs:
           
           echo -e "\n==== Generated detail pages ===="
           find docs/templates -name "*.html" | sort
+          
+          echo -e "\n==== Content of templates JSON file ===="
+          cat docs/data/templates.json || echo "File not found or empty"
       
       # Step 5: Commit and push all generated assets
       - name: Commit and push generated assets

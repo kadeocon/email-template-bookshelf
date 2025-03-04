@@ -293,6 +293,709 @@ jobs:
           });
           ENDOFFILE
 
+      # Create fixed GIF generator
+      - name: Create fixed GIF generator
+        run: |
+          cat > scripts/fixed-gif-generator.js << 'ENDOFFILE'
+          // fixed-gif-generator.js
+          // A fixed version of the scrolling GIF generator using puppeteer-core
+
+          const fs = require('fs');
+          const path = require('path');
+          const puppeteer = require('puppeteer-core');
+          const GIFEncoder = require('gifencoder');
+          const { createCanvas, Image } = require('canvas');
+
+          // Configuration
+          const config = {
+            templatesDir: 'templates',
+            outputDir: 'docs/previews/animated',
+            tempDir: 'temp-frames',
+            width: 600,         // Width of the email view
+            height: 800,        // Height of the visible window
+            quality: 10,        // GIF quality (10 is good)
+            delay: 150,         // Delay between frames in ms
+            repeat: 0,          // 0 for repeat, -1 for no-repeat
+            totalFrames: 10,    // Number of frames to capture
+            chromePath: '/usr/bin/google-chrome-stable',
+            debug: true
+          };
+
+          async function main() {
+            console.log('Starting scrolling GIF generation process...');
+            
+            // Create directories if they don't exist
+            ensureDirectoriesExist();
+            
+            // Get all HTML files
+            const templateFiles = getAllHtmlFiles();
+            console.log(`Found ${templateFiles.length} HTML template files to process for GIFs`);
+            
+            if (templateFiles.length === 0) {
+              console.error('ERROR: No HTML files found to process');
+              return;
+            }
+            
+            // Find Chrome executable
+            if (!fs.existsSync(config.chromePath)) {
+              // Try to find Chrome at common locations
+              const possiblePaths = [
+                '/usr/bin/google-chrome',
+                '/usr/bin/chromium-browser',
+                '/usr/bin/chromium'
+              ];
+              
+              for (const possiblePath of possiblePaths) {
+                if (fs.existsSync(possiblePath)) {
+                  config.chromePath = possiblePath;
+                  console.log(`Found Chrome at alternative location: ${config.chromePath}`);
+                  break;
+                }
+              }
+              
+              if (!fs.existsSync(config.chromePath)) {
+                console.error(`Chrome not found. Please install Chrome or update the path.`);
+                process.exit(1);
+              }
+            }
+            
+            // Launch browser with settings optimized for GitHub Actions
+            console.log('Launching Puppeteer browser...');
+            const browser = await puppeteer.launch({
+              executablePath: config.chromePath,
+              args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--disable-gpu',
+                '--window-size=1280,1024'
+              ],
+              headless: true
+            }).catch(err => {
+              console.error('Failed to launch browser:', err);
+              throw err;
+            });
+            
+            console.log('Browser launched successfully');
+            
+            // Process each file
+            let successCount = 0;
+            let failureCount = 0;
+            
+            for (const filePath of templateFiles) {
+              try {
+                await generateScrollingGif(filePath, browser);
+                successCount++;
+              } catch (error) {
+                console.error(`ERROR processing GIF for ${filePath}:`, error);
+                failureCount++;
+              }
+            }
+            
+            // Close browser
+            await browser.close();
+            console.log('Browser closed');
+            
+            // Clean up temp directory
+            cleanupTempDirectory();
+            
+            console.log(`GIF generation summary:`);
+            console.log(`- Total files processed: ${templateFiles.length}`);
+            console.log(`- Successful: ${successCount}`);
+            console.log(`- Failed: ${failureCount}`);
+          }
+
+          function getAllHtmlFiles() {
+            const results = [];
+            
+            function traverseDirectory(dir) {
+              if (!fs.existsSync(dir)) {
+                console.error(`Directory does not exist: ${dir}`);
+                return;
+              }
+              
+              const files = fs.readdirSync(dir);
+              
+              for (const file of files) {
+                const fullPath = path.join(dir, file);
+                
+                if (fs.statSync(fullPath).isDirectory()) {
+                  traverseDirectory(fullPath);
+                } else if (file.endsWith('.html') && !file.includes('detail-page-template')) {
+                  results.push(fullPath);
+                }
+              }
+            }
+            
+            traverseDirectory(config.templatesDir);
+            return results;
+          }
+
+          function ensureDirectoriesExist() {
+            [config.outputDir, config.tempDir].forEach(dir => {
+              if (!fs.existsSync(dir)) {
+                console.log(`Creating directory: ${dir}`);
+                fs.mkdirSync(dir, { recursive: true });
+              }
+            });
+          }
+
+          function cleanupTempDirectory() {
+            if (fs.existsSync(config.tempDir)) {
+              const files = fs.readdirSync(config.tempDir);
+              for (const file of files) {
+                try {
+                  fs.unlinkSync(path.join(config.tempDir, file));
+                } catch (error) {
+                  console.warn(`Warning: Could not delete temp file ${file}: ${error.message}`);
+                }
+              }
+              console.log(`Cleaned up temporary frame files`);
+            }
+          }
+
+          // Helper function for delays that works in all Puppeteer versions
+          async function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+          }
+
+          async function generateScrollingGif(htmlFilePath, browser) {
+            const fileName = path.basename(htmlFilePath, '.html');
+            const outputPath = path.join(config.outputDir, `${fileName}.gif`);
+            
+            console.log(`\nGenerating scrolling GIF for ${htmlFilePath}...`);
+            
+            // Create a new page
+            const page = await browser.newPage().catch(err => {
+              console.error('Failed to create new page:', err);
+              throw err;
+            });
+            
+            try {
+              // Read the HTML file
+              console.log(`- Reading file content for ${fileName}`);
+              const htmlContent = fs.readFileSync(htmlFilePath, 'utf8');
+              console.log(`- File read successfully, size: ${htmlContent.length} bytes`);
+              
+              // Set viewport
+              console.log(`- Setting viewport to ${config.width}x${config.height}`);
+              await page.setViewport({
+                width: config.width,
+                height: config.height,
+                deviceScaleFactor: 1,
+              });
+              
+              // Load the HTML content
+              console.log(`- Loading HTML content into page`);
+              await page.setContent(htmlContent, { 
+                waitUntil: 'networkidle0',
+                timeout: 30000
+              }).catch(err => {
+                console.error(`- Failed to load HTML content: ${err.message}`);
+                throw err;
+              });
+              
+              console.log(`- Content loaded successfully`);
+              
+              // Get the full height of the email
+              const emailHeight = await page.evaluate(() => {
+                return Math.max(
+                  document.body.scrollHeight,
+                  document.documentElement.scrollHeight,
+                  document.body.offsetHeight,
+                  document.documentElement.offsetHeight
+                );
+              });
+              
+              console.log(`- Email height for ${fileName}: ${emailHeight}px`);
+              
+              // Calculate scroll step for smooth scrolling
+              const scrollStep = Math.max(1, Math.floor((emailHeight - config.height) / (config.totalFrames - 1)));
+              
+              // Create frame files
+              const framePaths = [];
+              for (let i = 0; i < config.totalFrames; i++) {
+                const scrollPosition = Math.min(i * scrollStep, emailHeight - config.height);
+                
+                // Scroll to position
+                await page.evaluate((scrollTop) => {
+                  window.scrollTo(0, scrollTop);
+                }, scrollPosition);
+                
+                // Add a small delay to allow rendering (using delay function instead of waitForTimeout)
+                await delay(100);
+                
+                // Take screenshot
+                const framePath = path.join(config.tempDir, `${fileName}-frame-${i.toString().padStart(3, '0')}.png`);
+                await page.screenshot({
+                  path: framePath,
+                  clip: {
+                    x: 0,
+                    y: 0,
+                    width: config.width,
+                    height: config.height,
+                  }
+                }).catch(err => {
+                  console.error(`- Failed to take screenshot for frame ${i}: ${err.message}`);
+                  throw err;
+                });
+                
+                framePaths.push(framePath);
+                
+                console.log(`- Captured frame ${i+1}/${config.totalFrames} for ${fileName}`);
+              }
+              
+              // Create GIF from frames
+              console.log(`- Creating GIF from ${framePaths.length} frames`);
+              await createGifFromFrames(framePaths, outputPath);
+              
+              // Verify GIF was created
+              if (fs.existsSync(outputPath)) {
+                const fileStats = fs.statSync(outputPath);
+                console.log(`✓ Created scrolling GIF: ${outputPath}, size: ${fileStats.size} bytes`);
+                return true;
+              } else {
+                throw new Error(`Failed to create GIF - file not found: ${outputPath}`);
+              }
+            } catch (error) {
+              console.error(`- Error generating GIF for ${htmlFilePath}:`, error);
+              throw error;
+            } finally {
+              // Always close the page to free resources
+              await page.close().catch(err => console.error('Error closing page:', err));
+            }
+          }
+
+          async function createGifFromFrames(framePaths, outputPath) {
+            console.log(`- Starting GIF encoding process`);
+            
+            // Create a GIF encoder
+            const encoder = new GIFEncoder(config.width, config.height);
+            
+            // Create a write stream
+            const stream = fs.createWriteStream(outputPath);
+            
+            // Pipe the encoder to the file
+            encoder.createReadStream().pipe(stream);
+            
+            // Start encoding
+            encoder.start();
+            encoder.setRepeat(config.repeat);
+            encoder.setDelay(config.delay);
+            encoder.setQuality(config.quality);
+            
+            // Create canvas for drawing frames
+            const canvas = createCanvas(config.width, config.height);
+            const ctx = canvas.getContext('2d');
+            
+            // Add each frame to the GIF
+            let frameCount = 0;
+            for (const framePath of framePaths) {
+              try {
+                if (!fs.existsSync(framePath)) {
+                  console.warn(`- Frame file does not exist: ${framePath}`);
+                  continue;
+                }
+                
+                const image = new Image();
+                
+                // Load the image from file
+                image.src = framePath;
+                
+                // Draw the image on the canvas
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, config.width, config.height);
+                ctx.drawImage(image, 0, 0);
+                
+                // Add the frame from canvas
+                encoder.addFrame(ctx);
+                frameCount++;
+                
+                if (frameCount % 3 === 0) {
+                  console.log(`- Added frame ${frameCount}/${framePaths.length} to GIF`);
+                }
+              } catch (err) {
+                console.error(`- Error processing frame ${framePath}:`, err);
+                // Continue with other frames instead of failing
+              }
+            }
+            
+            // Finish encoding
+            encoder.finish();
+            console.log(`- GIF encoding finished`);
+            
+            // Return when stream is finished
+            return new Promise((resolve, reject) => {
+              stream.on('finish', () => {
+                // Verify the file was created and has content
+                if (fs.existsSync(outputPath)) {
+                  const stats = fs.statSync(outputPath);
+                  console.log(`- GIF file created: ${outputPath} (${stats.size} bytes)`);
+                  if (stats.size < 1000) {
+                    reject(new Error(`GIF file is suspiciously small: ${stats.size} bytes`));
+                  } else {
+                    resolve();
+                  }
+                } else {
+                  reject(new Error(`GIF file not found after encoding: ${outputPath}`));
+                }
+              });
+              stream.on('error', reject);
+            });
+          }
+
+          // For local testing and GitHub Actions
+          if (require.main === module) {
+            main().catch(error => {
+              console.error('Unhandled error in GIF generation:', error);
+              process.exit(1);
+            });
+          }
+
+          module.exports = { main };
+          ENDOFFILE
+
+      # Create enhanced path validator
+      - name: Create enhanced path validator
+        run: |
+          cat > scripts/enhanced-path-validator.js << 'ENDOFFILE'
+          // enhanced-path-validator.js
+          // Validate and fix paths in templates.json and detail pages
+
+          const fs = require('fs');
+          const path = require('path');
+
+          // Configuration
+          const config = {
+            templatesDir: 'templates',
+            docsDir: 'docs',
+            dataFile: 'docs/data/templates.json',
+            previewsDir: 'docs/previews',
+            detailPagesDir: 'docs/templates'
+          };
+
+          async function main() {
+            console.log('Starting path validation and correction...');
+            
+            // Check if templates.json exists
+            if (!fs.existsSync(config.dataFile)) {
+              console.error(`ERROR: templates.json file not found at ${config.dataFile}`);
+              return;
+            }
+            
+            // Load templates data
+            console.log(`Loading templates data from ${config.dataFile}...`);
+            let templatesData;
+            try {
+              templatesData = JSON.parse(fs.readFileSync(config.dataFile, 'utf8'));
+              console.log(`Loaded ${templatesData.length} template entries`);
+            } catch (error) {
+              console.error(`ERROR parsing templates.json: ${error.message}`);
+              return;
+            }
+            
+            // Validate and correct paths
+            let correctedCount = 0;
+            
+            for (let i = 0; i < templatesData.length; i++) {
+              const template = templatesData[i];
+              console.log(`\nValidating template: ${template.id}`);
+              
+              // Check if template.path points to a valid file
+              if (template.path) {
+                // Convert Windows-style paths to Unix-style
+                if (template.path.includes('\\')) {
+                  template.path = template.path.replace(/\\/g, '/');
+                  console.log(`- Converted path to Unix-style: ${template.path}`);
+                  correctedCount++;
+                }
+                
+                console.log(`- Template path: ${template.path}`);
+                
+                const absolutePath = path.resolve(template.path);
+                const fileExists = fs.existsSync(absolutePath);
+                
+                console.log(`- File exists: ${fileExists}`);
+                
+                if (!fileExists) {
+                  // Try to find the correct file path
+                  const possiblePaths = findPossibleTemplatePaths(template.id);
+                  console.log(`- Possible alternative paths: ${possiblePaths.length}`);
+                  
+                  if (possiblePaths.length > 0) {
+                    // Use the first found path as a replacement
+                    const newPath = possiblePaths[0].replace(/\\/g, '/');
+                    console.log(`- Correcting path from "${template.path}" to "${newPath}"`);
+                    template.path = newPath;
+                    correctedCount++;
+                  }
+                }
+              } else {
+                console.log(`- No path specified for template ${template.id}`);
+                
+                // Try to find a path for this template
+                const possiblePaths = findPossibleTemplatePaths(template.id);
+                if (possiblePaths.length > 0) {
+                  const newPath = possiblePaths[0].replace(/\\/g, '/');
+                  console.log(`- Adding path: "${newPath}"`);
+                  template.path = newPath;
+                  correctedCount++;
+                }
+              }
+              
+              // Check and correct preview paths
+              const staticPreviewPath = `previews/static/${template.id}.png`;
+              const animatedPreviewPath = `previews/animated/${template.id}.gif`;
+              
+              if (template.previewStatic !== staticPreviewPath) {
+                console.log(`- Correcting static preview path from "${template.previewStatic}" to "${staticPreviewPath}"`);
+                template.previewStatic = staticPreviewPath;
+                correctedCount++;
+              }
+              
+              if (template.previewAnimated !== animatedPreviewPath) {
+                console.log(`- Correcting animated preview path from "${template.previewAnimated}" to "${animatedPreviewPath}"`);
+                template.previewAnimated = animatedPreviewPath;
+                correctedCount++;
+              }
+            }
+            
+            // Save corrected data if changes were made
+            if (correctedCount > 0) {
+              console.log(`\nSaving ${correctedCount} path corrections to templates.json...`);
+              fs.writeFileSync(config.dataFile, JSON.stringify(templatesData, null, 2));
+              console.log('Save complete');
+            } else {
+              console.log('\nNo path corrections needed in templates.json');
+            }
+            
+            // Fix detail pages paths
+            console.log('\nChecking detail pages for path issues...');
+            const fixedDetailCount = await fixDetailPagePaths(templatesData);
+            
+            console.log(`\nSummary:`);
+            console.log(`- Fixed ${correctedCount} paths in templates.json`);
+            console.log(`- Fixed ${fixedDetailCount} paths in detail pages`);
+          }
+
+          // Find possible paths for a template with the given ID
+          function findPossibleTemplatePaths(templateId) {
+            const possiblePaths = [];
+            
+            function searchDirectory(dir) {
+              if (!fs.existsSync(dir)) return;
+              
+              const items = fs.readdirSync(dir);
+              
+              for (const item of items) {
+                const fullPath = path.join(dir, item);
+                
+                if (fs.statSync(fullPath).isDirectory()) {
+                  searchDirectory(fullPath);
+                } else if ((item.toLowerCase() === `${templateId.toLowerCase()}.html`) ||
+                           (item === `${templateId}.html`)) {
+                  possiblePaths.push(fullPath);
+                }
+              }
+            }
+            
+            searchDirectory(config.templatesDir);
+            return possiblePaths;
+          }
+
+          // Fix paths in all detail pages
+          async function fixDetailPagePaths(templatesData) {
+            if (!fs.existsSync(config.detailPagesDir)) {
+              console.error(`Detail pages directory does not exist: ${config.detailPagesDir}`);
+              return 0;
+            }
+            
+            const detailPages = fs.readdirSync(config.detailPagesDir)
+              .filter(file => file.endsWith('.html'));
+            
+            console.log(`Found ${detailPages.length} detail pages`);
+            
+            let fixedCount = 0;
+            
+            // Process each detail page
+            for (const detailFile of detailPages) {
+              const detailPath = path.join(config.detailPagesDir, detailFile);
+              const templateId = detailFile.replace('.html', '');
+              
+              console.log(`- Checking paths in detail page: ${detailFile}`);
+              
+              try {
+                // Get the template data for this page
+                const template = templatesData.find(t => 
+                  t.id === templateId || 
+                  t.id.toLowerCase() === templateId.toLowerCase()
+                );
+                
+                if (!template) {
+                  console.log(`  - No template data found for ${templateId}`);
+                  continue;
+                }
+                
+                // Read the detail page content
+                let content = fs.readFileSync(detailPath, 'utf8');
+                let pageChanged = false;
+                
+                // Get the correct path to the HTML file
+                const templateHtmlPath = template.path;
+                
+                // Check if the view HTML button has the correct path
+                const viewHtmlLinkRegex = /<a href="([^"]+)"[^>]*class="btn"[^>]*>View HTML<\/a>/;
+                const viewHtmlMatch = content.match(viewHtmlLinkRegex);
+                
+                if (viewHtmlMatch) {
+                  const currentPath = viewHtmlMatch[1];
+                  const correctPath = `../${templateHtmlPath}`;
+                  
+                  // Only fix if needed
+                  if (currentPath !== correctPath) {
+                    console.log(`  - Fixing View HTML button path from "${currentPath}" to "${correctPath}"`);
+                    content = content.replace(viewHtmlLinkRegex, `<a href="${correctPath}" target="_blank" class="btn">View HTML</a>`);
+                    pageChanged = true;
+                    fixedCount++;
+                  }
+                }
+                
+                // Fix preview tab content paths
+                const tabContentRegex = /const tabContent = \{([^}]+)\}/s;
+                const tabContentMatch = content.match(tabContentRegex);
+                
+                if (tabContentMatch) {
+                  const tabContentBlock = tabContentMatch[1];
+                  let newTabContentBlock = tabContentBlock;
+                  
+                  // Fix animated preview path
+                  const animatedPreviewRegex = /'animated-tab':\s*'<img src="\.\.\/([^"]+)"/;
+                  const animatedMatch = tabContentBlock.match(animatedPreviewRegex);
+                  if (animatedMatch) {
+                    const currentPath = animatedMatch[1];
+                    const correctPath = template.previewAnimated;
+                    if (currentPath !== correctPath) {
+                      console.log(`  - Fixing animated preview path from "${currentPath}" to "${correctPath}"`);
+                      newTabContentBlock = newTabContentBlock.replace(
+                        animatedPreviewRegex, 
+                        `'animated-tab': '<img src="../${correctPath}"`
+                      );
+                      pageChanged = true;
+                      fixedCount++;
+                    }
+                  }
+                  
+                  // Fix static preview path
+                  const staticPreviewRegex = /'static-tab':\s*'<img src="\.\.\/([^"]+)"/;
+                  const staticMatch = tabContentBlock.match(staticPreviewRegex);
+                  if (staticMatch) {
+                    const currentPath = staticMatch[1];
+                    const correctPath = template.previewStatic;
+                    if (currentPath !== correctPath) {
+                      console.log(`  - Fixing static preview path from "${currentPath}" to "${correctPath}"`);
+                      newTabContentBlock = newTabContentBlock.replace(
+                        staticPreviewRegex, 
+                        `'static-tab': '<img src="../${correctPath}"`
+                      );
+                      pageChanged = true;
+                      fixedCount++;
+                    }
+                  }
+                  
+                  // Fix live preview path
+                  const livePreviewRegex = /'live-tab':\s*'<iframe class="preview-iframe" src="\.\.\/([^"]+)"/;
+                  const livePreviewMatch = tabContentBlock.match(livePreviewRegex);
+                  if (livePreviewMatch) {
+                    const currentPath = livePreviewMatch[1];
+                    const correctPath = templateHtmlPath;
+                    if (currentPath !== correctPath) {
+                      console.log(`  - Fixing live preview path from "${currentPath}" to "${correctPath}"`);
+                      newTabContentBlock = newTabContentBlock.replace(
+                        livePreviewRegex, 
+                        `'live-tab': '<iframe class="preview-iframe" src="../${correctPath}"`
+                      );
+                      pageChanged = true;
+                      fixedCount++;
+                    }
+                  }
+                  
+                  // Update the tab content block if changes were made
+                  if (newTabContentBlock !== tabContentBlock) {
+                    content = content.replace(tabContentRegex, `const tabContent = {${newTabContentBlock}}`);
+                  }
+                }
+                
+                // Remove any empty tabs
+                const emptyTabRegex = /<button class="preview-tab" id="[^"]*"><\/button>/g;
+                if (emptyTabRegex.test(content)) {
+                  console.log(`  - Removing empty tab buttons`);
+                  content = content.replace(emptyTabRegex, '');
+                  pageChanged = true;
+                  fixedCount++;
+                }
+                
+                // Fix the preview container height
+                const styleFixRegex = /<style>[^<]*<\/style>/;
+                if (styleFixRegex.test(content)) {
+                  // Check if we already have a style fix
+                  if (!content.includes(".preview-iframe {")) {
+                    console.log(`  - Adding iframe style fix`);
+                    const styleTag = content.match(styleFixRegex)[0];
+                    const newStyleTag = styleTag.replace('</style>', `
+    .preview-iframe {
+      width: 100%;
+      height: 600px;
+      border: none;
+    }
+</style>`);
+                    content = content.replace(styleFixRegex, newStyleTag);
+                    pageChanged = true;
+                    fixedCount++;
+                  }
+                } else {
+                  // Add a style tag if none exists
+                  console.log(`  - Adding style tag with iframe fix`);
+                  const headEndTag = '</head>';
+                  const styleTag = `<style>
+    .preview-iframe {
+      width: 100%;
+      height: 600px;
+      border: none;
+    }
+</style>
+${headEndTag}`;
+                  content = content.replace(headEndTag, styleTag);
+                  pageChanged = true;
+                  fixedCount++;
+                }
+                
+                // Save changes if needed
+                if (pageChanged) {
+                  fs.writeFileSync(detailPath, content);
+                  console.log(`  - Saved changes to ${detailFile}`);
+                } else {
+                  console.log(`  - No changes needed for ${detailFile}`);
+                }
+              } catch (error) {
+                console.error(`ERROR processing detail page ${detailFile}:`, error);
+              }
+            }
+            
+            return fixedCount;
+          }
+
+          // For local testing and GitHub Actions
+          if (require.main === module) {
+            main().catch(error => {
+              console.error('Unhandled error in path validation:', error);
+              process.exit(1);
+            });
+          }
+
+          module.exports = { main };
+          ENDOFFILE
+      
       # Run fixed thumbnail generator
       - name: Generate full-height thumbnails
         run: |
@@ -304,6 +1007,18 @@ jobs:
           
           # List thumbnails
           find docs/previews/static -name "*.png" | sort
+      
+      # Run fixed GIF generator
+      - name: Generate animated GIFs
+        run: |
+          timeout 10m node scripts/fixed-gif-generator.js
+          
+          # Check if GIFs were generated
+          GIF_COUNT=$(find docs/previews/animated -name "*.gif" | wc -l)
+          echo "Generated $GIF_COUNT animated GIFs"
+          
+          # List GIFs
+          find docs/previews/animated -name "*.gif" | sort
       
       # Step 1: Generate template metadata
       - name: Generate template metadata
@@ -321,7 +1036,7 @@ jobs:
       # Step 2: Validate and fix paths
       - name: Validate and fix paths
         run: |
-          timeout 5m node scripts/path-validator.js
+          timeout 5m node scripts/enhanced-path-validator.js
       
       # Step 3: Generate detail pages
       - name: Generate detail pages
@@ -334,10 +1049,16 @@ jobs:
           echo "==== Static thumbnails ===="
           find docs/previews/static -type f | sort | xargs -I{} ls -la {}
           
+          echo -e "\n==== Animated GIFs ===="
+          find docs/previews/animated -type f | sort | xargs -I{} ls -la {}
+          
+          echo -e "\n==== Generated detail pages ===="
+          find docs/templates -name "*.html" | sort
+          
           echo -e "\n==== Content of templates.json file ===="
           cat docs/data/templates.json || echo "File not found or empty"
       
-      # Step 4: Commit and push all generated assets
+      # Step 6: Commit and push all generated assets
       - name: Commit and push generated assets
         run: |
           git config --local user.email "action@github.com"

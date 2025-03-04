@@ -28,66 +28,48 @@ jobs:
         with:
           fetch-depth: 2  # Needed to see the previous commit for diff
       
-      # Install system dependencies for Puppeteer and Canvas
+      # Install system dependencies for Chrome
       - name: Install system dependencies
         run: |
           # Update package lists
           sudo apt-get update
           
-          # Install dependencies for Puppeteer (Chrome)
+          # Install Chrome and dependencies
           sudo apt-get install -y --no-install-recommends \
+            google-chrome-stable \
             libgbm1 \
             libxkbcommon0 \
             libpangocairo-1.0-0 \
             libx11-xcb1 \
             libxcomposite1 \
             libxcursor1 \
-            libxdamage1 \
             libxi6 \
-            libxtst6 \
             libnss3 \
             libcups2 \
-            libxss1 \
-            libxrandr2 \
-            libatk1.0-0 \
-            libatk-bridge2.0-0 \
-            libpango-1.0-0 \
-            libcairo2 \
-            libatspi2.0-0 \
-            libgtk-3-0 \
-            libgdk-pixbuf2.0-0
+            libxss1
           
-          echo "Installed system dependencies for Puppeteer"
+          echo "Installed system dependencies for Chrome"
       
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 20
       
-      - name: Install dependencies
+      - name: Install limited dependencies
         run: |
-          # Install dependencies from package.json (if it exists)
-          if [ -f "package.json" ]; then
-            npm install
-          else
-            # Fallback to manual installation
-            npm install puppeteer gifencoder canvas png-file-stream cheerio marked
-          fi
+          # Install only the necessary packages with specific versions
+          npm install --no-fund --no-audit --loglevel=error \
+            puppeteer-core@20.8.0 \
+            canvas@2.11.2 \
+            gifencoder@2.0.1 \
+            png-file-stream@1.2.1 \
+            cheerio@1.0.0-rc.12
           
           # Check if installation was successful
-          echo "Checking if puppeteer is installed correctly:"
-          node -e "try { require('puppeteer'); console.log('Puppeteer is installed correctly'); } catch(e) { console.error('Puppeteer is NOT installed correctly:', e.message); process.exit(1); }"
-          
-          echo "Checking if canvas is installed correctly:"
-          node -e "try { require('canvas'); console.log('Canvas is installed correctly'); } catch(e) { console.error('Canvas is NOT installed correctly:', e.message); process.exit(1); }"
+          echo "Checking if puppeteer-core is installed correctly:"
+          node -e "try { require('puppeteer-core'); console.log('puppeteer-core is installed correctly'); } catch(e) { console.error('puppeteer-core is NOT installed correctly:', e.message); process.exit(1); }"
       
-      # Make scripts executable
-      - name: Make scripts executable
-        run: |
-          chmod +x scripts/*.js
-          echo "Made scripts executable"
-      
-      # Create required directories if they don't exist
+      # Create required directories
       - name: Ensure directories exist
         run: |
           mkdir -p docs/previews/static
@@ -96,131 +78,157 @@ jobs:
           mkdir -p docs/templates
           mkdir -p docs/images
           mkdir -p temp-frames
-          
-          echo "Directory structure created:"
-          ls -la docs/
-          ls -la docs/previews/
       
-      # Create a placeholder image using a simpler approach
+      # Create a placeholder image
       - name: Create placeholder image
         run: |
-          # Create the SVG as a single line to avoid YAML parsing issues
           echo '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600"><rect width="400" height="600" fill="#f0f0f0"/><rect x="50" y="50" width="300" height="500" rx="8" fill="#ffffff" stroke="#dddddd" stroke-width="2"/><text x="200" y="300" font-family="Arial" font-size="24" fill="#999999" text-anchor="middle">Email Preview</text></svg>' > docs/images/placeholder-email.svg
-          
-          # Verify file was created
-          if [ ! -f "docs/images/placeholder-email.svg" ]; then
-            echo "ERROR: Failed to create placeholder image"
-            exit 1
-          fi
-          
-          echo "Created placeholder image at docs/images/placeholder-email.svg"
-          ls -la docs/images/
-      
-      # Run Puppeteer diagnostics with a simple script
-      - name: Run Puppeteer diagnostics
+
+      # Update thumbnail generator to use puppeteer-core
+      - name: Create modified thumbnail generator
         run: |
-          # Create a simple test script
-          cat > scripts/simple-puppeteer-test.js << 'ENDOFFILE'
-          const puppeteer = require('puppeteer');
+          cat > scripts/simple-thumbnail-generator.js << 'ENDOFFILE'
           const fs = require('fs');
           const path = require('path');
+          const puppeteer = require('puppeteer-core');
 
-          async function test() {
-            console.log('Testing Puppeteer in GitHub Actions...');
+          // Get all HTML files in templates directory
+          function getAllHtmlFiles(directory) {
+            const results = [];
             
+            function traverseDirectory(dir) {
+              if (!fs.existsSync(dir)) return;
+              
+              const files = fs.readdirSync(dir);
+              
+              for (const file of files) {
+                const fullPath = path.join(dir, file);
+                
+                if (fs.statSync(fullPath).isDirectory()) {
+                  traverseDirectory(fullPath);
+                } else if (file.endsWith('.html') && !file.includes('detail-page-template')) {
+                  results.push(fullPath);
+                }
+              }
+            }
+            
+            traverseDirectory(directory);
+            return results;
+          }
+
+          async function main() {
+            console.log('Starting thumbnail generation...');
+            
+            // Create output directory if it doesn't exist
+            const outputDir = 'docs/previews/static';
+            if (!fs.existsSync(outputDir)) {
+              fs.mkdirSync(outputDir, { recursive: true });
+            }
+            
+            // Find Chrome executable
+            const chromePath = '/usr/bin/google-chrome-stable';
+            if (!fs.existsSync(chromePath)) {
+              console.error(`Chrome not found at ${chromePath}`);
+              process.exit(1);
+            }
+            
+            // Get HTML files
+            const htmlFiles = getAllHtmlFiles('templates');
+            console.log(`Found ${htmlFiles.length} HTML files`);
+            
+            // Launch browser
             const browser = await puppeteer.launch({
+              executablePath: chromePath,
               args: ['--no-sandbox', '--disable-setuid-sandbox']
             });
             
-            const page = await browser.newPage();
-            await page.setContent('<html><body><h1>Test</h1></body></html>');
-            
-            const testFile = path.join(__dirname, 'test-screenshot.png');
-            await page.screenshot({ path: testFile });
-            
-            const exists = fs.existsSync(testFile);
-            console.log(`Screenshot created: ${exists}`);
-            
-            if (exists) {
-              const stats = fs.statSync(testFile);
-              console.log(`Screenshot size: ${stats.size} bytes`);
+            // Process each file
+            for (const filePath of htmlFiles) {
+              try {
+                const fileName = path.basename(filePath, '.html');
+                const outputPath = path.join(outputDir, `${fileName}.png`);
+                
+                console.log(`Processing ${filePath}...`);
+                
+                // Create a new page
+                const page = await browser.newPage();
+                
+                // Set viewport
+                await page.setViewport({
+                  width: 800,
+                  height: 1200,
+                  deviceScaleFactor: 1
+                });
+                
+                // Read HTML content
+                const htmlContent = fs.readFileSync(filePath, 'utf8');
+                
+                // Load HTML content
+                await page.setContent(htmlContent, { 
+                  waitUntil: 'networkidle0',
+                  timeout: 30000
+                });
+                
+                // Take screenshot
+                await page.screenshot({
+                  path: outputPath,
+                  fullPage: false,
+                  clip: {
+                    x: 0,
+                    y: 0,
+                    width: 800,
+                    height: 1200
+                  }
+                });
+                
+                console.log(`Created thumbnail: ${outputPath}`);
+                
+                // Close page
+                await page.close();
+              } catch (error) {
+                console.error(`Error processing ${filePath}:`, error);
+              }
             }
             
+            // Close browser
             await browser.close();
-            console.log('Puppeteer test complete');
+            console.log('Thumbnail generation complete!');
           }
 
-          test().catch(err => {
-            console.error('Puppeteer test failed:', err);
-            process.exit(1);
-          });
+          main().catch(console.error);
           ENDOFFILE
-          
-          # Run the test
-          node scripts/simple-puppeteer-test.js
-      
-      # Step 1: Generate template metadata with timeout
-      - name: Generate template metadata
-        run: |
-          # Check if we have npm scripts
-          if grep -q '"generate-metadata"' package.json 2>/dev/null; then
-            npm run generate-metadata
-          else
-            node scripts/metadata-generator.js
-          fi
-      
-      # Step 2: Validate and fix paths with timeout
-      - name: Validate and fix paths
-        run: |
-          # Check if we have npm scripts
-          if grep -q '"validate-paths"' package.json 2>/dev/null; then
-            npm run validate-paths
-          else
-            node scripts/path-validator.js
-          fi
-      
-      # Step 3: Generate static thumbnails with timeout and memory limit
+
+      # Run thumbnail generator
       - name: Generate static thumbnails
         run: |
-          # Set Node.js memory limit
-          if grep -q '"generate-thumbnails"' package.json 2>/dev/null; then
-            NODE_OPTIONS="--max-old-space-size=4096" npm run generate-thumbnails
-          else
-            NODE_OPTIONS="--max-old-space-size=4096" node scripts/enhanced-thumbnail-generator.js
-          fi
+          timeout 5m node scripts/simple-thumbnail-generator.js
           
           # Check if thumbnails were generated
           THUMBNAIL_COUNT=$(find docs/previews/static -name "*.png" | wc -l)
           echo "Generated $THUMBNAIL_COUNT static thumbnails"
-          
-          # List thumbnails
-          find docs/previews/static -name "*.png" | sort
       
-      # Step 4: Generate scrolling GIFs with timeout and memory limit
-      - name: Generate scrolling GIFs
+      # Step 1: Generate template metadata
+      - name: Generate template metadata
         run: |
-          # Set Node.js memory limit
-          if grep -q '"generate-gifs"' package.json 2>/dev/null; then
-            NODE_OPTIONS="--max-old-space-size=4096" npm run generate-gifs
-          else  
-            NODE_OPTIONS="--max-old-space-size=4096" node scripts/enhanced-gif-generator.js
+          timeout 5m node scripts/metadata-generator.js
+          
+          # Verify metadata file was created
+          if [ -f "docs/data/templates.json" ]; then
+            echo "Template metadata generated successfully."
+          else
+            echo "Failed to generate metadata."
+            exit 1
           fi
-          
-          # Check if GIFs were generated
-          GIF_COUNT=$(find docs/previews/animated -name "*.gif" | wc -l)
-          echo "Generated $GIF_COUNT animated GIFs"
-          
-          # List GIFs
-          find docs/previews/animated -name "*.gif" | sort
       
-      # Step 5: Generate detail pages with timeout
+      # Step 2: Validate and fix paths
+      - name: Validate and fix paths
+        run: |
+          timeout 5m node scripts/path-validator.js
+      
+      # Step 3: Generate detail pages
       - name: Generate detail pages
         run: |
-          if grep -q '"generate-pages"' package.json 2>/dev/null; then
-            npm run generate-pages
-          else
-            node scripts/generate-detail-pages.js
-          fi
+          timeout 5m node scripts/generate-detail-pages.js
       
       # Debugging - List generated assets
       - name: Debug - List generated assets
@@ -228,21 +236,10 @@ jobs:
           echo "==== Static thumbnails ===="
           find docs/previews/static -type f | sort
           
-          echo -e "\n==== Animated GIFs ===="
-          find docs/previews/animated -type f | sort
-          
-          echo -e "\n==== Generated detail pages ===="
-          find docs/templates -name "*.html" | sort
-          
           echo -e "\n==== Content of templates.json file ===="
           cat docs/data/templates.json || echo "File not found or empty"
-          
-          echo -e "\n==== Directory permissions ===="
-          ls -la docs/previews/
-          ls -la docs/previews/static/
-          ls -la docs/previews/animated/
       
-      # Step 6: Commit and push all generated assets
+      # Step 4: Commit and push all generated assets
       - name: Commit and push generated assets
         run: |
           git config --local user.email "action@github.com"

@@ -28,6 +28,17 @@ jobs:
         with:
           fetch-depth: 2  # Needed to see the previous commit for diff
       
+      # Install system dependencies for Puppeteer and Canvas
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgbm-dev libxkbcommon-x11-0 libpangocairo-1.0-0 \
+            libx11-xcb1 libxcomposite1 libxcursor1 libxdamage1 libxi6 libxtst6 \
+            libnss3 libcups2 libxss1 libxrandr2 libasound2 libatk1.0-0 libatk-bridge2.0-0 \
+            libpango-1.0-0 libcairo2 libatspi2.0-0 libgtk-3-0 libgdk-pixbuf2.0-0
+          
+          echo "Installed system dependencies"
+      
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -44,6 +55,12 @@ jobs:
           echo "Checking if canvas is installed correctly:"
           node -e "try { require('canvas'); console.log('Canvas is installed correctly'); } catch(e) { console.error('Canvas is NOT installed correctly:', e.message); process.exit(1); }"
       
+      # Make scripts executable
+      - name: Make scripts executable
+        run: |
+          chmod +x scripts/*.js
+          echo "Made scripts executable"
+      
       # Create required directories if they don't exist
       - name: Ensure directories exist
         run: |
@@ -54,50 +71,130 @@ jobs:
           mkdir -p docs/images
           mkdir -p temp-frames
           
+          # Verify all directories were created
+          if [ ! -d "docs/previews/static" ] || [ ! -d "docs/previews/animated" ]; then
+            echo "ERROR: Failed to create preview directories"
+            exit 1
+          fi
+          
           echo "Directory structure created:"
           ls -la docs/
           ls -la docs/previews/
       
-      # Copy placeholder image if needed
-      - name: Copy placeholder image
+      # Create a placeholder image using a simpler approach
+      - name: Create placeholder image
         run: |
-          if [ ! -f docs/images/placeholder-email.svg ]; then
-            echo "Placeholder image not found in docs/images"
-            
-            if [ -f "docs/images/placeholder-email.svg" ]; then
-              echo "Found placeholder image at docs/images/placeholder-email.svg"
-              cp docs/images/placeholder-email.svg docs/images/placeholder-email.svg
-            else
-              echo "Creating basic placeholder SVG"
-              cat > docs/images/placeholder-email.svg << 'EOF'
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600">
-                <rect width="400" height="600" fill="#f0f0f0"/>
-                <rect x="50" y="50" width="300" height="500" rx="8" fill="#ffffff" stroke="#dddddd" stroke-width="2"/>
-                <text x="200" y="300" font-family="Arial" font-size="24" fill="#999999" text-anchor="middle">Email Preview</text>
-              </svg>
-              EOF
-            fi
+          # Using printf instead of echo for better multi-line handling
+          printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600">
+  <rect width="400" height="600" fill="#f0f0f0"/>
+  <rect x="50" y="50" width="300" height="500" rx="8" fill="#ffffff" stroke="#dddddd" stroke-width="2"/>
+  <text x="200" y="300" font-family="Arial" font-size="24" fill="#999999" text-anchor="middle">Email Preview</text>
+</svg>' > docs/images/placeholder-email.svg
+          
+          # Verify file was created
+          if [ ! -f "docs/images/placeholder-email.svg" ]; then
+            echo "ERROR: Failed to create placeholder image"
+            exit 1
           fi
+          
+          echo "Created placeholder image at docs/images/placeholder-email.svg"
+          ls -la docs/images/
       
-      # Step 1: Generate template metadata first
+      # Run Puppeteer diagnostics
+      - name: Run Puppeteer diagnostics
+        run: |
+          cat > scripts/puppeteer-diagnostic.js << 'EOF'
+          // Simple test for Puppeteer in GitHub Actions
+          const puppeteer = require('puppeteer');
+          const fs = require('fs');
+          const path = require('path');
+
+          async function test() {
+            console.log('Testing Puppeteer in GitHub Actions...');
+            
+            const browser = await puppeteer.launch({
+              args: ['--no-sandbox', '--disable-setuid-sandbox']
+            });
+            
+            const page = await browser.newPage();
+            await page.setContent('<html><body><h1>Test</h1></body></html>');
+            
+            const testFile = path.join(__dirname, 'test-screenshot.png');
+            await page.screenshot({ path: testFile });
+            
+            const exists = fs.existsSync(testFile);
+            console.log(`Screenshot created: ${exists}`);
+            
+            if (exists) {
+              const stats = fs.statSync(testFile);
+              console.log(`Screenshot size: ${stats.size} bytes`);
+            }
+            
+            await browser.close();
+            console.log('Puppeteer test complete');
+          }
+
+          test().catch(err => {
+            console.error('Puppeteer test failed:', err);
+            process.exit(1);
+          });
+          EOF
+          
+          # Run the test
+          node scripts/puppeteer-diagnostic.js
+      
+      # Step 1: Generate template metadata with timeout
       - name: Generate template metadata
-        run: node scripts/metadata-generator.js
+        run: |
+          # Run with a timeout to prevent hanging
+          timeout 5m node scripts/metadata-generator.js
+          
+          # Verify metadata file was created
+          if [ ! -f "docs/data/templates.json" ]; then
+            echo "ERROR: Failed to generate templates.json"
+            exit 1
+          fi
+          
+          echo "Template metadata generated"
       
-      # Step 2: Validate and fix paths 
+      # Step 2: Validate and fix paths with timeout
       - name: Validate and fix paths
-        run: node scripts/path-validator.js
+        run: timeout 5m node scripts/path-validator.js
       
-      # Step 3: Generate static thumbnails with improved script
+      # Step 3: Generate static thumbnails with timeout and memory limit
       - name: Generate static thumbnails
-        run: node scripts/enhanced-thumbnail-generator.js
+        run: |
+          # Set Node.js memory limit and timeout
+          NODE_OPTIONS="--max-old-space-size=4096" timeout 10m node scripts/enhanced-thumbnail-generator.js
+          
+          # Check if thumbnails were generated
+          THUMBNAIL_COUNT=$(find docs/previews/static -name "*.png" | wc -l)
+          echo "Generated $THUMBNAIL_COUNT static thumbnails"
+          
+          # List thumbnails
+          find docs/previews/static -name "*.png" | sort
       
-      # Step 4: Generate scrolling GIFs with improved script
+      # Step 4: Generate scrolling GIFs with timeout and memory limit
       - name: Generate scrolling GIFs
-        run: node scripts/enhanced-gif-generator.js
+        run: |
+          # Set Node.js memory limit and timeout
+          NODE_OPTIONS="--max-old-space-size=4096" timeout 15m node scripts/enhanced-gif-generator.js
+          
+          # Check if GIFs were generated
+          GIF_COUNT=$(find docs/previews/animated -name "*.gif" | wc -l)
+          echo "Generated $GIF_COUNT animated GIFs"
+          
+          # List GIFs
+          find docs/previews/animated -name "*.gif" | sort
       
-      # Step 5: Generate detail pages for each template
+      # Step 5: Generate detail pages with timeout
       - name: Generate detail pages
-        run: node scripts/generate-detail-pages.js
+        run: |
+          timeout 5m node scripts/generate-detail-pages.js
+          
+          # Check if detail pages were generated
+          PAGE_COUNT=$(find docs/templates -name "*.html" | wc -l)
+          echo "Generated $PAGE_COUNT detail pages"
       
       # Debugging - List generated assets
       - name: Debug - List generated assets
@@ -113,6 +210,11 @@ jobs:
           
           echo -e "\n==== Content of templates.json file ===="
           cat docs/data/templates.json || echo "File not found or empty"
+          
+          echo -e "\n==== Directory permissions ===="
+          ls -la docs/previews/
+          ls -la docs/previews/static/
+          ls -la docs/previews/animated/
       
       # Step 6: Commit and push all generated assets
       - name: Commit and push generated assets

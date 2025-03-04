@@ -87,12 +87,12 @@ jobs:
         run: |
           echo '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600"><rect width="400" height="600" fill="#f0f0f0"/><rect x="50" y="50" width="300" height="500" rx="8" fill="#ffffff" stroke="#dddddd" stroke-width="2"/><text x="200" y="300" font-family="Arial" font-size="24" fill="#999999" text-anchor="middle">Email Preview</text></svg>' > docs/images/placeholder-email.svg
 
-      # Create improved thumbnail generator
-      - name: Create improved thumbnail generator
+      # Create fixed thumbnail generator
+      - name: Create fixed thumbnail generator
         run: |
-          cat > scripts/improved-thumbnail-generator.js << 'ENDOFFILE'
+          cat > scripts/fixed-thumbnail-generator.js << 'ENDOFFILE'
           // improved-thumbnail-generator.js
-          // Captures the full height of email templates
+          // Captures the full height of email templates - fixed version
 
           const fs = require('fs');
           const path = require('path');
@@ -105,7 +105,6 @@ jobs:
             width: 800,          // Width of the email view
             maxHeight: 15000,    // Maximum height to prevent extreme cases
             defaultHeight: 1200, // Default viewport height to start with
-            quality: 80,         // Image quality (0-100)
             chromePath: '/usr/bin/google-chrome-stable',
             debug: true          // Enable logging
           };
@@ -243,12 +242,11 @@ jobs:
                   deviceScaleFactor: 1
                 });
                 
-                // Take screenshot of the entire page
+                // Take screenshot of the entire page - removed quality parameter
                 console.log(`- Taking full-height screenshot`);
                 await page.screenshot({
                   path: outputPath,
-                  fullPage: true,
-                  quality: config.quality
+                  fullPage: true
                 });
                 
                 console.log(`✓ Created thumbnail: ${outputPath}`);
@@ -295,10 +293,10 @@ jobs:
           });
           ENDOFFILE
 
-      # Run improved thumbnail generator
+      # Run fixed thumbnail generator
       - name: Generate full-height thumbnails
         run: |
-          timeout 10m node scripts/improved-thumbnail-generator.js
+          timeout 10m node scripts/fixed-thumbnail-generator.js
           
           # Check if thumbnails were generated
           THUMBNAIL_COUNT=$(find docs/previews/static -name "*.png" | wc -l)
@@ -334,7 +332,7 @@ jobs:
       - name: Debug - List generated assets
         run: |
           echo "==== Static thumbnails ===="
-          find docs/previews/static -type f | sort
+          find docs/previews/static -type f | sort | xargs -I{} ls -la {}
           
           echo -e "\n==== Content of templates.json file ===="
           cat docs/data/templates.json || echo "File not found or empty"

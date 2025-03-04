@@ -1,0 +1,56 @@
+name: Setup Environment
+
+on:
+  workflow_call:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: 'npm'
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            google-chrome-stable \
+            libgbm1 \
+            libxkbcommon0 \
+            libpangocairo-1.0-0 \
+            libx11-xcb1 \
+            libxcomposite1 \
+            libxcursor1 \
+            libxi6 \
+            libnss3 \
+            libcups2 \
+            libxss1
+      
+      - name: Generate cache key
+        id: cache-key
+        run: echo "key=env-$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+      
+      - name: Create required directories
+        run: |
+          mkdir -p docs/previews/static
+          mkdir -p docs/previews/animated
+          mkdir -p docs/data
+          mkdir -p docs/templates
+          mkdir -p docs/images
+          mkdir -p temp-frames
+          
+          # Create placeholder image if it doesn't exist
+          if [ ! -f docs/images/placeholder-email.svg ]; then
+            echo '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600"><rect width="400" height="600" fill="#f0f0f0"/><rect x="50" y="50" width="300" height="500" rx="8" fill="#ffffff" stroke="#dddddd" stroke-width="2"/><text x="200" y="300" font-family="Arial" font-size="24" fill="#999999" text-anchor="middle">Email Preview</text></svg>' > docs/images/placeholder-email.svg
+          fi

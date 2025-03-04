@@ -1,0 +1,26 @@
+name: Build All Email Templates
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_all:
+        description: 'Force rebuild of all templates'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  metadata:
+    uses: ./.github/workflows/metadata-generator.yml
+  
+  thumbnails:
+    needs: metadata
+    uses: ./.github/workflows/thumbnail-generator.yml
+  
+  gifs:
+    needs: metadata
+    uses: ./.github/workflows/gif-generator.yml
+  
+  detail-pages:
+    needs: [thumbnails, gifs]
+    uses: ./.github/workflows/detail-page-generator.yml

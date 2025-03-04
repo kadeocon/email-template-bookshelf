@@ -583,6 +583,13 @@ footer a:hover, footer a:focus {
     overflow: hidden;
 }
 
+.preview-iframe {
+    width: 100%;
+    height: 600px;
+    border: none;
+    display: block;
+  }
+
 .preview-tabs {
     display: flex;
     border-bottom: 1px solid #eee;

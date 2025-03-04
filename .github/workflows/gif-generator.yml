@@ -1,0 +1,278 @@
+name: Generate Animated GIFs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'templates/**/*.html'
+      - 'docs/data/templates.json'
+  workflow_dispatch:
+
+jobs:
+  setup:
+    uses: ./.github/workflows/setup-env.yml
+
+  generate-gifs:
+    needs: setup
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      - name: Install dependencies
+        run: npm install --no-fund puppeteer-core gifencoder canvas png-file-stream
+      
+      - name: Generate animated GIFs
+        run: |
+          cat > scripts/simplified-gif-generator.js << 'ENDOFFILE'
+          // simplified-gif-generator.js
+          const fs = require('fs');
+          const path = require('path');
+          const puppeteer = require('puppeteer-core');
+          const GIFEncoder = require('gifencoder');
+          const { createCanvas, Image } = require('canvas');
+
+          const config = {
+            templatesDir: 'templates',
+            outputDir: 'docs/previews/animated',
+            tempDir: 'temp-frames',
+            width: 600,
+            height: 800,
+            frames: 8,           // Reduced number of frames
+            quality: 10,         
+            delay: 200,          // Increased delay between frames
+            repeat: 0,           // 0 for infinite loop
+            chromePath: '/usr/bin/google-chrome-stable'
+          };
+
+          async function main() {
+            console.log('Starting GIF generation...');
+            
+            // Ensure directories exist
+            [config.outputDir, config.tempDir].forEach(dir => {
+              if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+              }
+            });
+            
+            // Find all HTML template files
+            const htmlFiles = getAllHtmlFiles(config.templatesDir);
+            console.log(`Found ${htmlFiles.length} HTML files to process`);
+            
+            // Launch Chrome
+            const browser = await puppeteer.launch({
+              executablePath: config.chromePath,
+              args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage'
+              ],
+              headless: true
+            });
+            
+            // Process each file
+            let successCount = 0;
+            
+            for (const filePath of htmlFiles) {
+              try {
+                await generateGif(filePath, browser);
+                successCount++;
+              } catch (error) {
+                console.error(`Error processing ${filePath}:`, error);
+              }
+            }
+            
+            await browser.close();
+            
+            // Clean up temp directory
+            if (fs.existsSync(config.tempDir)) {
+              const files = fs.readdirSync(config.tempDir);
+              for (const file of files) {
+                try {
+                  fs.unlinkSync(path.join(config.tempDir, file));
+                } catch (err) {
+                  console.warn(`Could not delete ${file}: ${err.message}`);
+                }
+              }
+            }
+            
+            console.log(`Generated ${successCount} animated GIFs successfully`);
+          }
+
+          function getAllHtmlFiles(directory) {
+            const results = [];
+            
+            function traverseDirectory(dir) {
+              if (!fs.existsSync(dir)) return;
+              
+              const files = fs.readdirSync(dir);
+              
+              for (const file of files) {
+                const fullPath = path.join(dir, file);
+                
+                if (fs.statSync(fullPath).isDirectory()) {
+                  traverseDirectory(fullPath);
+                } else if (file.endsWith('.html') && !file.includes('detail-page-template')) {
+                  results.push(fullPath);
+                }
+              }
+            }
+            
+            traverseDirectory(directory);
+            return results;
+          }
+
+          // Helper for delays
+          function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+          }
+
+          async function generateGif(htmlFilePath, browser) {
+            const fileName = path.basename(htmlFilePath, '.html');
+            const outputPath = path.join(config.outputDir, `${fileName}.gif`);
+            
+            console.log(`Processing ${htmlFilePath}...`);
+            
+            // Create a new page
+            const page = await browser.newPage();
+            
+            try {
+              // Read HTML content
+              const htmlContent = fs.readFileSync(htmlFilePath, 'utf8');
+              
+              // Set viewport
+              await page.setViewport({
+                width: config.width,
+                height: config.height,
+                deviceScaleFactor: 1
+              });
+              
+              // Load HTML content
+              await page.setContent(htmlContent, { 
+                waitUntil: 'networkidle0',
+                timeout: 30000
+              });
+              
+              // Get full height of content
+              const emailHeight = await page.evaluate(() => {
+                return Math.max(
+                  document.body.scrollHeight,
+                  document.documentElement.scrollHeight,
+                  document.body.offsetHeight,
+                  document.documentElement.offsetHeight
+                );
+              });
+              
+              // Calculate scroll increments
+              const scrollDistance = Math.max(0, emailHeight - config.height);
+              const scrollStep = scrollDistance / (config.frames - 1);
+              
+              // Take screenshots at different scroll positions
+              const framePaths = [];
+              
+              for (let i = 0; i < config.frames; i++) {
+                // Calculate scroll position
+                const scrollPosition = Math.min(i * scrollStep, scrollDistance);
+                
+                // Scroll to position
+                await page.evaluate((scrollTop) => {
+                  window.scrollTo(0, scrollTop);
+                }, scrollPosition);
+                
+                // Wait for any animations to settle
+                await delay(100);
+                
+                // Take screenshot
+                const framePath = path.join(config.tempDir, `${fileName}-frame-${i}.png`);
+                await page.screenshot({
+                  path: framePath,
+                  clip: {
+                    x: 0,
+                    y: 0,
+                    width: config.width,
+                    height: config.height
+                  }
+                });
+                
+                framePaths.push(framePath);
+                console.log(`Captured frame ${i+1}/${config.frames}`);
+              }
+              
+              // Create GIF from frames
+              await createGif(framePaths, outputPath);
+              
+              console.log(`Created GIF: ${outputPath}`);
+            } finally {
+              await page.close();
+            }
+          }
+
+          async function createGif(framePaths, outputPath) {
+            // Create a GIF encoder
+            const encoder = new GIFEncoder(config.width, config.height);
+            const stream = fs.createWriteStream(outputPath);
+            
+            // Pipe encoder output to file
+            encoder.createReadStream().pipe(stream);
+            
+            // Start encoding
+            encoder.start();
+            encoder.setRepeat(config.repeat);
+            encoder.setDelay(config.delay);
+            encoder.setQuality(config.quality);
+            
+            // Create canvas
+            const canvas = createCanvas(config.width, config.height);
+            const ctx = canvas.getContext('2d');
+            
+            // Add each frame
+            for (const framePath of framePaths) {
+              try {
+                if (!fs.existsSync(framePath)) continue;
+                
+                // Load image
+                const image = new Image();
+                image.src = framePath;
+                
+                // Clear canvas
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, config.width, config.height);
+                
+                // Draw image
+                ctx.drawImage(image, 0, 0);
+                
+                // Add frame
+                encoder.addFrame(ctx);
+              } catch (err) {
+                console.error(`Error adding frame ${framePath}: ${err.message}`);
+              }
+            }
+            
+            // Finish encoding
+            encoder.finish();
+            
+            // Wait for stream to finish
+            return new Promise((resolve, reject) => {
+              stream.on('finish', resolve);
+              stream.on('error', reject);
+            });
+          }
+
+          if (require.main === module) {
+            main().catch(console.error);
+          }
+          ENDOFFILE
+          
+          node scripts/simplified-gif-generator.js
+      
+      - name: Commit and push GIFs
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs/previews/animated/
+          git diff --staged --quiet || git commit -m "Update animated GIFs [skip ci]"
+          git push

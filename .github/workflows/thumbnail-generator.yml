@@ -1,0 +1,158 @@
+name: Generate Static Thumbnails
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'templates/**/*.html'
+      - 'docs/data/templates.json'
+  workflow_dispatch:
+
+jobs:
+  setup:
+    uses: ./.github/workflows/setup-env.yml
+
+  generate-thumbnails:
+    needs: setup
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      - name: Install dependencies
+        run: npm install --no-fund puppeteer-core
+      
+      - name: Generate static thumbnails
+        run: |
+          cat > scripts/simplified-thumbnail-generator.js << 'ENDOFFILE'
+          // simplified-thumbnail-generator.js
+          const fs = require('fs');
+          const path = require('path');
+          const puppeteer = require('puppeteer-core');
+
+          const config = {
+            templatesDir: 'templates',
+            outputDir: 'docs/previews/static',
+            width: 800,
+            height: 1200,
+            chromePath: '/usr/bin/google-chrome-stable'
+          };
+
+          async function main() {
+            console.log('Starting thumbnail generation...');
+            
+            // Ensure output directory exists
+            if (!fs.existsSync(config.outputDir)) {
+              fs.mkdirSync(config.outputDir, { recursive: true });
+            }
+            
+            // Find all HTML template files
+            const htmlFiles = getAllHtmlFiles(config.templatesDir);
+            console.log(`Found ${htmlFiles.length} HTML files to process`);
+            
+            // Launch Chrome
+            const browser = await puppeteer.launch({
+              executablePath: config.chromePath,
+              args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage'
+              ],
+              headless: true
+            });
+            
+            // Process each file
+            let successCount = 0;
+            
+            for (const filePath of htmlFiles) {
+              try {
+                await generateThumbnail(filePath, browser);
+                successCount++;
+              } catch (error) {
+                console.error(`Error processing ${filePath}:`, error);
+              }
+            }
+            
+            await browser.close();
+            console.log(`Generated ${successCount} thumbnails successfully`);
+          }
+
+          function getAllHtmlFiles(directory) {
+            const results = [];
+            
+            function traverseDirectory(dir) {
+              if (!fs.existsSync(dir)) return;
+              
+              const files = fs.readdirSync(dir);
+              
+              for (const file of files) {
+                const fullPath = path.join(dir, file);
+                
+                if (fs.statSync(fullPath).isDirectory()) {
+                  traverseDirectory(fullPath);
+                } else if (file.endsWith('.html') && !file.includes('detail-page-template')) {
+                  results.push(fullPath);
+                }
+              }
+            }
+            
+            traverseDirectory(directory);
+            return results;
+          }
+
+          async function generateThumbnail(htmlFilePath, browser) {
+            const fileName = path.basename(htmlFilePath, '.html');
+            const outputPath = path.join(config.outputDir, `${fileName}.png`);
+            
+            console.log(`Processing ${htmlFilePath}...`);
+            
+            // Create a new page
+            const page = await browser.newPage();
+            
+            try {
+              // Read HTML content
+              const htmlContent = fs.readFileSync(htmlFilePath, 'utf8');
+              
+              // Set viewport
+              await page.setViewport({
+                width: config.width,
+                height: config.height,
+                deviceScaleFactor: 1
+              });
+              
+              // Load HTML content
+              await page.setContent(htmlContent, { 
+                waitUntil: 'networkidle0',
+                timeout: 30000
+              });
+              
+              // Take full page screenshot
+              await page.screenshot({
+                path: outputPath,
+                fullPage: true
+              });
+              
+              console.log(`Created thumbnail: ${outputPath}`);
+            } finally {
+              await page.close();
+            }
+          }
+
+          if (require.main === module) {
+            main().catch(console.error);
+          }
+          ENDOFFILE
+          
+          node scripts/simplified-thumbnail-generator.js
+      
+      - name: Commit and push thumbnails
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs/previews/static/
+          git diff --staged --quiet || git commit -m "Update static thumbnails [skip ci]"
+          git push

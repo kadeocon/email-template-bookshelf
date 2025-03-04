@@ -1,0 +1,48 @@
+name: Generate Template Metadata
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'templates/**/*.html'
+  workflow_dispatch:
+
+jobs:
+  setup:
+    uses: ./.github/workflows/setup-env.yml
+
+  generate-metadata:
+    needs: setup
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      - name: Install dependencies
+        run: npm install --no-fund cheerio
+      
+      - name: Generate metadata
+        run: |
+          node scripts/metadata-generator.js
+        
+      - name: Validate metadata file
+        run: |
+          if [ ! -f "docs/data/templates.json" ]; then
+            echo "Error: templates.json was not generated"
+            exit 1
+          fi
+          
+          echo "Metadata file contents:"
+          cat docs/data/templates.json
+      
+      - name: Commit and push metadata
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs/data/templates.json
+          git diff --staged --quiet || git commit -m "Update template metadata [skip ci]"
+          git push

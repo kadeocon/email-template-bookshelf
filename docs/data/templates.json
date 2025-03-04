@@ -1,20 +1,20 @@
 [
   {
-    "id": "bifties-gifts",
+    "id": "Bifties-Gifts",
     "title": "Bifties Gifts",
     "description": "Promotion for gift box packages for graduation season",
-    "path": "templates/client-templates/bifties-gifts.html",
+    "path": "templates/client-templates/Bifties-Gifts.html",
+    "client": "Templates",
     "tags": [
       "E-commerce",
       "Retail",
       "Products"
     ],
-    "client": "Client",
-    "previewStatic": "previews/static/bifties-gifts.png",
-    "previewAnimated": "previews/animated/bifties-gifts.gif",
-    "fullDescription": "The client aimed to target campus students and faculty for graduation season, promoting stocked sets of gift products curated from Black creators. We decided to highlight 3 boxes in partifular, and reinforce secondary CTAs to highlight Corporate Gifting and the Free Shipping policy. We incorporated benefits from their Community webpage to introduce the brand and its mission to our list audience.",
-    "designNotes": "A CAN-SPAM compliant footer connected to our list is added post design approval and tested before launch.",
+    "previewStatic": "previews/static/Bifties-Gifts.png",
+    "previewAnimated": "previews/animated/Bifties-Gifts.gif",
     "subjectLine": "Unbox Black culture with Bifties 🎁",
+    "isCMGDemo": false,
+    "fullDescription": "The client aimed to target campus students and faculty for graduation season, promoting stocked sets of gift products curated from Black creators. We decided to highlight 3 boxes in partifular, and reinforce secondary CTAs to highlight Corporate Gifting and the Free Shipping policy. We incorporated benefits from their Community webpage to introduce the brand and its mission to our list audience.",
     "features": [
       {
         "title": "Paired with Retargeting",
@@ -28,25 +28,25 @@
         "title": "Brand Alignment",
         "description": "Closely follows brand standards set by client's home website"
       }
-    ]
+    ],
+    "designNotes": "A CAN-SPAM compliant footer connected to our list is added post design approval and tested before launch."
   },
   {
     "id": "abandoned-cart",
     "title": "Abandoned Cart Email",
     "description": "Recovery email for abandoned shopping carts with product reminders.",
     "path": "templates/cmg-demo-templates/abandoned-cart.html",
+    "client": "CMG Demo",
     "tags": [
       "E-commerce",
       "Recovery",
       "CMG Demo"
     ],
-    "client": "CMG Demo",
-    "isCMGDemo": true,
     "previewStatic": "previews/static/abandoned-cart.png",
     "previewAnimated": "previews/animated/abandoned-cart.gif",
-    "fullDescription": "This abandoned cart recovery email template was created for e-commerce clients looking to recapture lost sales. The design is optimized to remind customers of items left in their cart and encourage completion of the purchase through compelling imagery and strategic CTAs.",
-    "designNotes": "The template uses a minimalist design focused on highlighting the abandoned products. The color scheme can be easily customized to match your brand identity while maintaining accessibility standards.",
     "subjectLine": "Your Cart is Waiting - Complete Your Purchase Today!",
+    "isCMGDemo": true,
+    "fullDescription": "This abandoned cart recovery email template was created for e-commerce clients looking to recapture lost sales. The design is optimized to remind customers of items left in their cart and encourage completion of the purchase through compelling imagery and strategic CTAs.",
     "features": [
       {
         "title": "Dynamic Product Display",
@@ -64,6 +64,7 @@
         "title": "Customizable Timing",
         "description": "Template can be configured for different abandonment durations (1 hour, 24 hours, etc.)."
       }
-    ]
+    ],
+    "designNotes": "The template uses a minimalist design focused on highlighting the abandoned products. The color scheme can be easily customized to match your brand identity while maintaining accessibility standards."
   }
 ]

@@ -71,12 +71,6 @@ jobs:
           mkdir -p docs/images
           mkdir -p temp-frames
           
-          # Verify all directories were created
-          if [ ! -d "docs/previews/static" ] || [ ! -d "docs/previews/animated" ]; then
-            echo "ERROR: Failed to create preview directories"
-            exit 1
-          fi
-          
           echo "Directory structure created:"
           ls -la docs/
           ls -la docs/previews/
@@ -84,12 +78,8 @@ jobs:
       # Create a placeholder image using a simpler approach
       - name: Create placeholder image
         run: |
-          # Using printf instead of echo for better multi-line handling
-          printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600">
-  <rect width="400" height="600" fill="#f0f0f0"/>
-  <rect x="50" y="50" width="300" height="500" rx="8" fill="#ffffff" stroke="#dddddd" stroke-width="2"/>
-  <text x="200" y="300" font-family="Arial" font-size="24" fill="#999999" text-anchor="middle">Email Preview</text>
-</svg>' > docs/images/placeholder-email.svg
+          # Create the SVG as a single line to avoid YAML parsing issues
+          echo '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600"><rect width="400" height="600" fill="#f0f0f0"/><rect x="50" y="50" width="300" height="500" rx="8" fill="#ffffff" stroke="#dddddd" stroke-width="2"/><text x="200" y="300" font-family="Arial" font-size="24" fill="#999999" text-anchor="middle">Email Preview</text></svg>' > docs/images/placeholder-email.svg
           
           # Verify file was created
           if [ ! -f "docs/images/placeholder-email.svg" ]; then
@@ -100,11 +90,11 @@ jobs:
           echo "Created placeholder image at docs/images/placeholder-email.svg"
           ls -la docs/images/
       
-      # Run Puppeteer diagnostics
+      # Run Puppeteer diagnostics with a simple script
       - name: Run Puppeteer diagnostics
         run: |
-          cat > scripts/puppeteer-diagnostic.js << 'EOF'
-          // Simple test for Puppeteer in GitHub Actions
+          # Create a simple test script
+          cat > scripts/simple-puppeteer-test.js << 'ENDOFFILE'
           const puppeteer = require('puppeteer');
           const fs = require('fs');
           const path = require('path');
@@ -138,10 +128,10 @@ jobs:
             console.error('Puppeteer test failed:', err);
             process.exit(1);
           });
-          EOF
+          ENDOFFILE
           
           # Run the test
-          node scripts/puppeteer-diagnostic.js
+          node scripts/simple-puppeteer-test.js
       
       # Step 1: Generate template metadata with timeout
       - name: Generate template metadata

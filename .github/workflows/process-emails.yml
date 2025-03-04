@@ -31,31 +31,18 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 20  # Updated from 16 to 20
+          node-version: 20
       
       - name: Install dependencies
         run: |
           npm install puppeteer gifencoder canvas png-file-stream cheerio marked
-      
-      # Detailed diagnostics about repository structure
-      - name: Diagnostic - Repository Structure
-        run: |
-          echo "==== Repository Structure Overview ===="
-          echo "Content of templates directory:"
-          find templates -type d | sort
           
-          echo -e "\nContent of docs directory:"
-          find docs -type d | sort 2>/dev/null || echo "docs directory may not exist yet"
+          # Check if installation was successful
+          echo "Checking if puppeteer is installed correctly:"
+          node -e "try { require('puppeteer'); console.log('Puppeteer is installed correctly'); } catch(e) { console.error('Puppeteer is NOT installed correctly:', e.message); process.exit(1); }"
           
-          echo -e "\nHTML files in repository:"
-          find . -name "*.html" | grep -v "node_modules" | sort
-          
-          echo -e "\nScript files in repository:"
-          find scripts -type f | sort
-          
-          # Show full content of template directories
-          echo -e "\nFull content of template directories:"
-          find templates -type f | grep -v "node_modules" | sort
+          echo "Checking if canvas is installed correctly:"
+          node -e "try { require('canvas'); console.log('Canvas is installed correctly'); } catch(e) { console.error('Canvas is NOT installed correctly:', e.message); process.exit(1); }"
       
       # Create required directories if they don't exist
       - name: Ensure directories exist
@@ -65,6 +52,7 @@ jobs:
           mkdir -p docs/data
           mkdir -p docs/templates
           mkdir -p docs/images
+          mkdir -p temp-frames
           
           echo "Directory structure created:"
           ls -la docs/
@@ -73,90 +61,45 @@ jobs:
       # Copy placeholder image if needed
       - name: Copy placeholder image
         run: |
-          # Check if the placeholder image exists in docs/images
           if [ ! -f docs/images/placeholder-email.svg ]; then
             echo "Placeholder image not found in docs/images"
             
-            # Check if it exists in the repository
             if [ -f "docs/images/placeholder-email.svg" ]; then
               echo "Found placeholder image at docs/images/placeholder-email.svg"
               cp docs/images/placeholder-email.svg docs/images/placeholder-email.svg
-            elif [ -f "templates/placeholder-email.svg" ]; then
-              echo "Found placeholder image at templates/placeholder-email.svg"
-              cp templates/placeholder-email.svg docs/images/placeholder-email.svg
             else
-              echo "Searching for placeholder SVG files..."
-              find . -name "*.svg" | grep -v "node_modules"
-              echo "Could not find placeholder image, will need to create one"
+              echo "Creating basic placeholder SVG"
+              cat > docs/images/placeholder-email.svg << 'EOF'
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600">
+                <rect width="400" height="600" fill="#f0f0f0"/>
+                <rect x="50" y="50" width="300" height="500" rx="8" fill="#ffffff" stroke="#dddddd" stroke-width="2"/>
+                <text x="200" y="300" font-family="Arial" font-size="24" fill="#999999" text-anchor="middle">Email Preview</text>
+              </svg>
+              EOF
             fi
-          else
-            echo "Placeholder image already exists at docs/images/placeholder-email.svg"
           fi
       
-      # Initial diagnostic step
-      - name: Pre-processing Diagnostic
-        run: |
-          echo "==== TEMPLATE HTML ANALYSIS ===="
-          # Find all HTML files in templates directory
-          for file in $(find templates -name "*.html" -not -path "*/detail-page-template.html"); do
-            echo -e "\nAnalyzing file: $file"
-            echo "File exists: $(test -f $file && echo Yes || echo No)"
-            echo "File size: $(stat -c %s $file) bytes"
-            echo "Checking for METADATA comment..."
-            grep -A 5 "METADATA:" "$file" || echo "No METADATA found"
-            echo "Checking for title tag..."
-            grep -o "<title>.*</title>" "$file" || echo "No title tag found"
-          done
-      
-      # Enhanced logging for processing steps
-      - name: Set processing environment
-        run: |
-          # Always process all templates for now
-          echo "PROCESS_ALL=true" >> $GITHUB_ENV
-          echo "Processing ALL templates (forced for debugging)"
-      
-      # Step 1: Generate static thumbnails
-      - name: Generate static thumbnails
-        run: node scripts/thumbnail-generator.js
-        env:
-          PROCESS_ALL: true
-      
-      # Step 2: Generate scrolling GIFs
-      - name: Generate scrolling GIFs
-        run: |
-          # Find all HTML files in templates directory
-          find templates -name "*.html" -not -path "*/detail-page-template.html" > template_files.txt
-          if [ -s template_files.txt ]; then
-            echo "==== Template files found for GIF generation ===="
-            cat template_files.txt
-            cat template_files.txt | xargs node scripts/scrolling-gif-generator.js || echo "GIF generation failed but continuing"
-          else
-            echo "No HTML template files found to process for GIFs"
-          fi
-      
-      # Step 3: Generate metadata for all templates
+      # Step 1: Generate template metadata first
       - name: Generate template metadata
         run: node scripts/metadata-generator.js
       
-      # Debugging - Check metadata after running scripts
-      - name: Debug - Check templates.json after metadata generation
-        run: |
-          if [ -f "docs/data/templates.json" ]; then
-            echo "==== templates.json content ===="
-            cat docs/data/templates.json
-          else
-            echo "templates.json was not created!"
-            echo "Current directory content:"
-            ls -la
-            echo "docs/data content:"
-            ls -la docs/data/ || echo "docs/data directory may not exist"
-          fi
+      # Step 2: Validate and fix paths 
+      - name: Validate and fix paths
+        run: node scripts/path-validator.js
       
-      # Step 4: Generate detail pages for each template
+      # Step 3: Generate static thumbnails with improved script
+      - name: Generate static thumbnails
+        run: node scripts/enhanced-thumbnail-generator.js
+      
+      # Step 4: Generate scrolling GIFs with improved script
+      - name: Generate scrolling GIFs
+        run: node scripts/enhanced-gif-generator.js
+      
+      # Step 5: Generate detail pages for each template
       - name: Generate detail pages
         run: node scripts/generate-detail-pages.js
       
-      # Debugging - List generated preview assets
+      # Debugging - List generated assets
       - name: Debug - List generated assets
         run: |
           echo "==== Static thumbnails ===="
@@ -168,10 +111,10 @@ jobs:
           echo -e "\n==== Generated detail pages ===="
           find docs/templates -name "*.html" | sort
           
-          echo -e "\n==== Content of templates JSON file ===="
+          echo -e "\n==== Content of templates.json file ===="
           cat docs/data/templates.json || echo "File not found or empty"
       
-      # Step 5: Commit and push all generated assets
+      # Step 6: Commit and push all generated assets
       - name: Commit and push generated assets
         run: |
           git config --local user.email "action@github.com"

@@ -1,0 +1,45 @@
+{
+  "name": "email-template-bookshelf",
+  "version": "1.0.0",
+  "description": "A curated collection of HTML email templates with automatic preview generation",
+  "main": "index.js",
+  "scripts": {
+    "generate-thumbnails": "node scripts/enhanced-thumbnail-generator.js",
+    "generate-gifs": "node scripts/enhanced-gif-generator.js",
+    "generate-metadata": "node scripts/metadata-generator.js",
+    "validate-paths": "node scripts/path-validator.js",
+    "generate-pages": "node scripts/generate-detail-pages.js",
+    "build": "npm run generate-metadata && npm run validate-paths && npm run generate-thumbnails && npm run generate-gifs && npm run generate-pages"
+  },
+  "dependencies": {
+    "canvas": "^2.11.2",
+    "cheerio": "^1.0.0-rc.12",
+    "gifencoder": "^2.0.1",
+    "marked": "^9.1.0", 
+    "png-file-stream": "^1.2.1",
+    "puppeteer": "^21.3.8"
+  },
+  "overrides": {
+    "glob": "^10.3.3",
+    "rimraf": "^5.0.1",
+    "are-we-there-yet": "^3.0.1",
+    "gauge": "^5.0.0",
+    "npmlog": "^7.0.1",
+    "inflight": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/email-template-bookshelf.git"
+  },
+  "keywords": [
+    "email",
+    "templates",
+    "html",
+    "gallery"
+  ],
+  "author": "Kade O'Connor",
+  "license": "MIT"
+}

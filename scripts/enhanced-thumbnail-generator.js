@@ -116,6 +116,11 @@ function ensureDirectoriesExist() {
   }
 }
 
+// Helper function for delays that works in all Puppeteer versions
+async function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function processFile(filePath, browser) {
   const fileName = path.basename(filePath, '.html');
   const staticThumbnailPath = path.join(config.staticThumbnailsDir, `${fileName}.png`);
@@ -147,7 +152,7 @@ async function processFile(filePath, browser) {
     // Load the HTML content with timeout and wait options
     console.log(`- Loading HTML content into page`);
     await page.setContent(htmlContent, { 
-      waitUntil: ['load', 'networkidle2'],
+      waitUntil: ['load', 'networkidle0'],
       timeout: 30000 // 30 second timeout
     }).catch(err => {
       console.error(`- Failed to load HTML content: ${err.message}`);
@@ -156,8 +161,9 @@ async function processFile(filePath, browser) {
     
     console.log(`- Content loaded successfully`);
     
-    // Wait a bit for any resources to load
-    await page.waitForTimeout(1000);
+    // Wait a bit for any resources to load using setTimeout instead of waitForTimeout
+    console.log(`- Waiting for resources to load...`);
+    await delay(1000);
     
     // Take screenshot
     console.log(`- Taking screenshot and saving to ${staticThumbnailPath}`);

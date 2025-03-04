@@ -42,6 +42,13 @@ async function main() {
     
     // Check if template.path points to a valid file
     if (template.path) {
+      // Convert Windows-style paths to Unix-style
+      if (template.path.includes('\\')) {
+        template.path = template.path.replace(/\\/g, '/');
+        console.log(`- Converted path to Unix-style: ${template.path}`);
+        correctedCount++;
+      }
+      
       console.log(`- Template path: ${template.path}`);
       
       const absolutePath = path.resolve(template.path);
@@ -101,9 +108,9 @@ async function main() {
     console.log('\nNo path corrections needed');
   }
   
-  // Verify detail pages
-  console.log('\nVerifying detail pages...');
-  verifyDetailPages(templatesData);
+  // Fix detail pages paths
+  console.log('\nChecking detail pages for path issues...');
+  await fixDetailPagePaths();
 }
 
 // Find possible paths for a template with the given ID
@@ -131,8 +138,8 @@ function findPossibleTemplatePaths(templateId) {
   return possiblePaths;
 }
 
-// Verify detail pages match templates.json data
-function verifyDetailPages(templatesData) {
+// Fix paths in all detail pages
+async function fixDetailPagePaths() {
   if (!fs.existsSync(config.detailPagesDir)) {
     console.error(`Detail pages directory does not exist: ${config.detailPagesDir}`);
     return;
@@ -143,31 +150,81 @@ function verifyDetailPages(templatesData) {
   
   console.log(`Found ${detailPages.length} detail pages`);
   
-  // Check if all templates have detail pages
-  for (const template of templatesData) {
-    const detailPageName = `${template.id}.html`;
-    const detailPagePath = path.join(config.detailPagesDir, detailPageName);
+  let fixedCount = 0;
+  
+  // Get template data
+  let templatesData = [];
+  try {
+    templatesData = JSON.parse(fs.readFileSync(config.dataFile, 'utf8'));
+  } catch (error) {
+    console.error(`ERROR reading templates.json: ${error.message}`);
+    return;
+  }
+  
+  // Process each detail page
+  for (const detailFile of detailPages) {
+    const detailPath = path.join(config.detailPagesDir, detailFile);
+    const templateId = detailFile.replace('.html', '');
     
-    if (detailPages.includes(detailPageName)) {
-      console.log(`- Detail page exists for ${template.id}`);
+    console.log(`- Checking paths in detail page: ${detailFile}`);
+    
+    try {
+      // Get the template data for this page
+      const template = templatesData.find(t => t.id === templateId);
+      if (!template) {
+        console.log(`  - No template data found for ${templateId}`);
+        continue;
+      }
       
-      // Optional: check content of detail page
-      if (fs.existsSync(detailPagePath)) {
-        const content = fs.readFileSync(detailPagePath, 'utf8');
+      // Read the detail page content
+      let content = fs.readFileSync(detailPath, 'utf8');
+      
+      // The path should include the full path to the HTML file
+      const templateHtmlPath = template.path;
+      
+      // Check if the view HTML button has the correct path
+      const viewHtmlLinkRegex = /<a href="([^"]+)" target="_blank" class="btn">View HTML<\/a>/;
+      const viewHtmlMatch = content.match(viewHtmlLinkRegex);
+      
+      if (viewHtmlMatch) {
+        const currentPath = viewHtmlMatch[1];
+        const correctPath = `../${templateHtmlPath}`;
         
-        // Check if path in live preview tab matches template.path
-        const templatePath = template.path.replace('templates/', '');
-        const liveTabPattern = new RegExp(`src=["']\\.\\./${templatePath}["']`);
-        
-        if (!liveTabPattern.test(content)) {
-          console.log(`  - WARNING: Live preview path in detail page doesn't match template.path`);
-          console.log(`    Expected: ../[${templatePath}]`);
+        // Only fix if needed
+        if (currentPath !== correctPath) {
+          console.log(`  - Fixing View HTML button path from "${currentPath}" to "${correctPath}"`);
+          content = content.replace(viewHtmlLinkRegex, `<a href="${correctPath}" target="_blank" class="btn">View HTML</a>`);
+          fixedCount++;
         }
       }
-    } else {
-      console.log(`- Missing detail page for ${template.id}`);
+      
+      // Check if the live preview tab is correct
+      const livePreviewRegex = /src=["']\.\.\/([^"']+)["'] title="Live preview/;
+      const livePreviewMatch = content.match(livePreviewRegex);
+      
+      if (livePreviewMatch) {
+        const currentPath = livePreviewMatch[1];
+        const correctPath = templateHtmlPath;
+        
+        // Only fix if needed
+        if (currentPath !== correctPath) {
+          console.log(`  - Fixing Live preview path from "${currentPath}" to "${correctPath}"`);
+          content = content.replace(livePreviewRegex, `src="../${correctPath}" title="Live preview`);
+          fixedCount++;
+        }
+      }
+      
+      // Save changes if needed
+      if (fixedCount > 0) {
+        fs.writeFileSync(detailPath, content);
+        console.log(`  - Saved changes to ${detailFile}`);
+      }
+    } catch (error) {
+      console.error(`ERROR processing detail page ${detailFile}:`, error);
     }
   }
+  
+  console.log(`\nFixed ${fixedCount} paths in detail pages`);
 }
 
 // For local testing and GitHub Actions

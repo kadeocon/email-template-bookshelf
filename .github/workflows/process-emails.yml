@@ -63,10 +63,12 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20
+          cache: 'npm'
       
       - name: Install dependencies
         run: |
-          npm install puppeteer gifencoder canvas png-file-stream cheerio marked
+          # Use npm ci for more reliable dependency installation
+          npm ci
           
           # Check if installation was successful
           echo "Checking if puppeteer is installed correctly:"
@@ -155,27 +157,17 @@ jobs:
       
       # Step 1: Generate template metadata with timeout
       - name: Generate template metadata
-        run: |
-          # Run with a timeout to prevent hanging
-          timeout 5m node scripts/metadata-generator.js
-          
-          # Verify metadata file was created
-          if [ ! -f "docs/data/templates.json" ]; then
-            echo "ERROR: Failed to generate templates.json"
-            exit 1
-          fi
-          
-          echo "Template metadata generated"
+        run: npm run generate-metadata
       
       # Step 2: Validate and fix paths with timeout
       - name: Validate and fix paths
-        run: timeout 5m node scripts/path-validator.js
+        run: npm run validate-paths
       
       # Step 3: Generate static thumbnails with timeout and memory limit
       - name: Generate static thumbnails
         run: |
-          # Set Node.js memory limit and timeout
-          NODE_OPTIONS="--max-old-space-size=4096" timeout 10m node scripts/enhanced-thumbnail-generator.js
+          # Set Node.js memory limit
+          NODE_OPTIONS="--max-old-space-size=4096" npm run generate-thumbnails
           
           # Check if thumbnails were generated
           THUMBNAIL_COUNT=$(find docs/previews/static -name "*.png" | wc -l)
@@ -187,8 +179,8 @@ jobs:
       # Step 4: Generate scrolling GIFs with timeout and memory limit
       - name: Generate scrolling GIFs
         run: |
-          # Set Node.js memory limit and timeout
-          NODE_OPTIONS="--max-old-space-size=4096" timeout 15m node scripts/enhanced-gif-generator.js
+          # Set Node.js memory limit
+          NODE_OPTIONS="--max-old-space-size=4096" npm run generate-gifs
           
           # Check if GIFs were generated
           GIF_COUNT=$(find docs/previews/animated -name "*.gif" | wc -l)
@@ -199,12 +191,7 @@ jobs:
       
       # Step 5: Generate detail pages with timeout
       - name: Generate detail pages
-        run: |
-          timeout 5m node scripts/generate-detail-pages.js
-          
-          # Check if detail pages were generated
-          PAGE_COUNT=$(find docs/templates -name "*.html" | wc -l)
-          echo "Generated $PAGE_COUNT detail pages"
+        run: npm run generate-pages
       
       # Debugging - List generated assets
       - name: Debug - List generated assets

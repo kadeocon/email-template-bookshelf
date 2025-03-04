@@ -135,6 +135,11 @@ function cleanupTempDirectory() {
   }
 }
 
+// Helper function for delays that works in all Puppeteer versions
+async function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function generateScrollingGif(htmlFilePath, browser) {
   const fileName = path.basename(htmlFilePath, '.html');
   const outputPath = path.join(config.outputDir, `${fileName}.gif`);
@@ -164,7 +169,7 @@ async function generateScrollingGif(htmlFilePath, browser) {
     // Load the HTML content
     console.log(`- Loading HTML content into page`);
     await page.setContent(htmlContent, { 
-      waitUntil: ['load', 'networkidle2'],
+      waitUntil: ['load', 'networkidle0'],
       timeout: 30000 // 30 second timeout
     }).catch(err => {
       console.error(`- Failed to load HTML content: ${err.message}`);
@@ -198,8 +203,8 @@ async function generateScrollingGif(htmlFilePath, browser) {
         window.scrollTo(0, scrollTop);
       }, scrollPosition);
       
-      // Add a small delay to allow rendering
-      await page.waitForTimeout(100);
+      // Add a small delay to allow rendering (using setTimeout instead of waitForTimeout)
+      await delay(100);
       
       // Take screenshot
       const framePath = path.join(config.tempDir, `${fileName}-frame-${i.toString().padStart(3, '0')}.png`);

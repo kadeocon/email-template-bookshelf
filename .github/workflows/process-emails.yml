@@ -49,6 +49,9 @@ jobs:
             libxss1
           
           echo "Installed system dependencies for Chrome"
+          
+          # Verify Chrome installation
+          google-chrome --version || echo "Chrome not found"
       
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -84,13 +87,28 @@ jobs:
         run: |
           echo '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600"><rect width="400" height="600" fill="#f0f0f0"/><rect x="50" y="50" width="300" height="500" rx="8" fill="#ffffff" stroke="#dddddd" stroke-width="2"/><text x="200" y="300" font-family="Arial" font-size="24" fill="#999999" text-anchor="middle">Email Preview</text></svg>' > docs/images/placeholder-email.svg
 
-      # Update thumbnail generator to use puppeteer-core
-      - name: Create modified thumbnail generator
+      # Create improved thumbnail generator
+      - name: Create improved thumbnail generator
         run: |
-          cat > scripts/simple-thumbnail-generator.js << 'ENDOFFILE'
+          cat > scripts/improved-thumbnail-generator.js << 'ENDOFFILE'
+          // improved-thumbnail-generator.js
+          // Captures the full height of email templates
+
           const fs = require('fs');
           const path = require('path');
           const puppeteer = require('puppeteer-core');
+
+          // Configuration
+          const config = {
+            templatesDir: 'templates',
+            outputDir: 'docs/previews/static',
+            width: 800,          // Width of the email view
+            maxHeight: 15000,    // Maximum height to prevent extreme cases
+            defaultHeight: 1200, // Default viewport height to start with
+            quality: 80,         // Image quality (0-100)
+            chromePath: '/usr/bin/google-chrome-stable',
+            debug: true          // Enable logging
+          };
 
           // Get all HTML files in templates directory
           function getAllHtmlFiles(directory) {
@@ -117,95 +135,177 @@ jobs:
           }
 
           async function main() {
-            console.log('Starting thumbnail generation...');
+            console.log('Starting improved thumbnail generation...');
             
             // Create output directory if it doesn't exist
-            const outputDir = 'docs/previews/static';
-            if (!fs.existsSync(outputDir)) {
-              fs.mkdirSync(outputDir, { recursive: true });
+            if (!fs.existsSync(config.outputDir)) {
+              fs.mkdirSync(config.outputDir, { recursive: true });
+              console.log(`Created output directory: ${config.outputDir}`);
             }
             
             // Find Chrome executable
-            const chromePath = '/usr/bin/google-chrome-stable';
-            if (!fs.existsSync(chromePath)) {
-              console.error(`Chrome not found at ${chromePath}`);
-              process.exit(1);
+            if (!fs.existsSync(config.chromePath)) {
+              // Try to find Chrome at common locations
+              const possiblePaths = [
+                '/usr/bin/google-chrome',
+                '/usr/bin/chromium-browser',
+                '/usr/bin/chromium'
+              ];
+              
+              for (const possiblePath of possiblePaths) {
+                if (fs.existsSync(possiblePath)) {
+                  config.chromePath = possiblePath;
+                  console.log(`Found Chrome at alternative location: ${config.chromePath}`);
+                  break;
+                }
+              }
+              
+              if (!fs.existsSync(config.chromePath)) {
+                console.error(`Chrome not found. Please install Chrome or update the path.`);
+                process.exit(1);
+              }
             }
             
             // Get HTML files
-            const htmlFiles = getAllHtmlFiles('templates');
-            console.log(`Found ${htmlFiles.length} HTML files`);
+            const htmlFiles = getAllHtmlFiles(config.templatesDir);
+            console.log(`Found ${htmlFiles.length} HTML files to process`);
             
             // Launch browser
+            console.log(`Launching browser using Chrome at: ${config.chromePath}`);
             const browser = await puppeteer.launch({
-              executablePath: chromePath,
-              args: ['--no-sandbox', '--disable-setuid-sandbox']
+              executablePath: config.chromePath,
+              args: [
+                '--no-sandbox', 
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--disable-web-security',
+                '--disable-features=IsolateOrigins,site-per-process'
+              ],
+              headless: true,
+              defaultViewport: null // We'll set this per page
             });
             
             // Process each file
+            let successCount = 0;
+            let failCount = 0;
+            
             for (const filePath of htmlFiles) {
               try {
                 const fileName = path.basename(filePath, '.html');
-                const outputPath = path.join(outputDir, `${fileName}.png`);
+                const outputPath = path.join(config.outputDir, `${fileName}.png`);
                 
-                console.log(`Processing ${filePath}...`);
+                console.log(`\nProcessing: ${filePath}`);
                 
                 // Create a new page
                 const page = await browser.newPage();
                 
-                // Set viewport
+                // Set initial viewport
                 await page.setViewport({
-                  width: 800,
-                  height: 1200,
+                  width: config.width,
+                  height: config.defaultHeight,
                   deviceScaleFactor: 1
                 });
                 
                 // Read HTML content
+                console.log(`- Reading HTML content`);
                 const htmlContent = fs.readFileSync(filePath, 'utf8');
                 
                 // Load HTML content
+                console.log(`- Loading content into browser`);
                 await page.setContent(htmlContent, { 
                   waitUntil: 'networkidle0',
                   timeout: 30000
                 });
                 
-                // Take screenshot
-                await page.screenshot({
-                  path: outputPath,
-                  fullPage: false,
-                  clip: {
-                    x: 0,
-                    y: 0,
-                    width: 800,
-                    height: 1200
-                  }
+                // Measure the actual height of the email content
+                console.log(`- Measuring content height`);
+                const contentHeight = await page.evaluate(() => {
+                  return Math.min(
+                    Math.max(
+                      document.body.scrollHeight,
+                      document.documentElement.scrollHeight,
+                      document.body.offsetHeight,
+                      document.documentElement.offsetHeight,
+                      document.body.clientHeight,
+                      document.documentElement.clientHeight
+                    ),
+                    15000 // Maximum height limit
+                  );
                 });
                 
-                console.log(`Created thumbnail: ${outputPath}`);
+                console.log(`- Content height: ${contentHeight}px`);
                 
-                // Close page
+                // Resize viewport to fit content
+                await page.setViewport({
+                  width: config.width,
+                  height: contentHeight,
+                  deviceScaleFactor: 1
+                });
+                
+                // Take screenshot of the entire page
+                console.log(`- Taking full-height screenshot`);
+                await page.screenshot({
+                  path: outputPath,
+                  fullPage: true,
+                  quality: config.quality
+                });
+                
+                console.log(`✓ Created thumbnail: ${outputPath}`);
+                
+                // Verify the file exists and has content
+                if (fs.existsSync(outputPath)) {
+                  const stats = fs.statSync(outputPath);
+                  console.log(`- File size: ${stats.size} bytes`);
+                  
+                  if (stats.size < 1000) {
+                    console.warn(`⚠️ Warning: Image file is suspiciously small (${stats.size} bytes)`);
+                  } else {
+                    successCount++;
+                  }
+                } else {
+                  console.error(`✗ Failed to create thumbnail file: ${outputPath}`);
+                  failCount++;
+                }
+                
+                // Close page to free memory
                 await page.close();
+                
               } catch (error) {
-                console.error(`Error processing ${filePath}:`, error);
+                console.error(`✗ Error processing ${filePath}:`, error);
+                failCount++;
               }
             }
             
             // Close browser
             await browser.close();
+            
+            // Print summary
+            console.log('\nThumbnail generation summary:');
+            console.log(`- Total files processed: ${htmlFiles.length}`);
+            console.log(`- Successful: ${successCount}`);
+            console.log(`- Failed: ${failCount}`);
             console.log('Thumbnail generation complete!');
           }
 
-          main().catch(console.error);
+          // Run the script
+          main().catch(error => {
+            console.error('Unhandled error:', error);
+            process.exit(1);
+          });
           ENDOFFILE
 
-      # Run thumbnail generator
-      - name: Generate static thumbnails
+      # Run improved thumbnail generator
+      - name: Generate full-height thumbnails
         run: |
-          timeout 5m node scripts/simple-thumbnail-generator.js
+          timeout 10m node scripts/improved-thumbnail-generator.js
           
           # Check if thumbnails were generated
           THUMBNAIL_COUNT=$(find docs/previews/static -name "*.png" | wc -l)
           echo "Generated $THUMBNAIL_COUNT static thumbnails"
+          
+          # List thumbnails
+          find docs/previews/static -name "*.png" | sort
       
       # Step 1: Generate template metadata
       - name: Generate template metadata
